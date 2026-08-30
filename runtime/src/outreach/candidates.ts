@@ -45,11 +45,10 @@ export function matchesCron(expr: string, now: Date = new Date()): boolean {
 function invitationActive(claim: TwigClaim): boolean {
   const inv = claim.rementionInvitation
   if (!inv) return false
-  if (inv.status === 'REDEEMED') return false
-  if (typeof inv.expiresAt === 'string') {
-    const exp = Date.parse(inv.expiresAt)
-    if (!Number.isNaN(exp) && exp < Date.now()) return false
-  }
+  if (inv.status === 'redeemed') return false // 上游 v0.3.1：user_engaged 消费后不再命中（小写枚举）
+  // 上游 P2-4：邀请 30 天后过期（renderPromptText 不再注入，宿主侧同步失效）
+  const ageDays = (Date.now() - Date.parse(inv.at)) / 86_400_000
+  if (!Number.isNaN(ageDays) && ageDays > 30) return false
   return true
 }
 
@@ -59,16 +58,31 @@ export async function scanCandidate(
   user: { id: string; eternalId: string; preferences: Record<string, unknown> },
   now: Date = new Date(),
 ): Promise<OutreachCandidate | null> {
-  // 1. remention：一次性票据；Twig 侧 REDEEMED 后 scan 不再命中
+  // 1. remention：授权源 = Narrative Engine 的再提邀请（§19.1.1）。
+  //    上游真实语义（core.ts §5.4 债务⑦）：邀请只挂在 contested 论断上——
+  //    被否决的观察积累 ≥3 条独立新证据且过 14 天冷却后才生成邀请； redeemed / 超 30 天不再命中。
+  //    防纠缠（§19.6）：宿主侧对同一 claim 的 remention 再加 7 天投递冷却——
+  //    dedupe_key 的 5 分钟桶只防同刻重放，防不了下一轮 cron 的重复兑现。
   try {
     const claims = await twig.listClaims(user.eternalId)
-    const invited = claims.find(c => c.status === 'active' && invitationActive(c))
+    const invited = claims.find(c => c.status === 'contested' && invitationActive(c))
     if (invited) {
-      return {
-        outreachType: 'remention',
-        targetId: invited.id,
-        claimId: invited.id,
-        hint: `此前用户与自己有过一个未决认识：「${invited.text}」。这是对当初再提邀请的兑现——自然地、不施压地重新提起这个话题，关心它现在的状态。`,
+      const { rows } = await db.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM outreach
+            WHERE user_id = $1 AND outreach_type = 'remention' AND claim_id = $2
+              AND status IN ('delivered','completed')
+              AND created_at > NOW() - INTERVAL '7 days'
+         ) AS exists`,
+        [user.id, invited.id],
+      )
+      if (!(rows[0]?.exists)) {
+        return {
+          outreachType: 'remention',
+          targetId: invited.id,
+          claimId: invited.id,
+          hint: `你之前对某个判断纠正过用户，后来被本人否决了；现在有了新的独立迹象，认识层已生成邀请式再提议：「${invited.rementionInvitation?.text ?? ''}」。请在容得下反驳的时机、以邀请式措辞自然提出——若再次被否决，该观察将被永久封存。`,
+        }
       }
     }
   } catch {

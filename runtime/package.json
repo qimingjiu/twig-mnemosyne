@@ -14,6 +14,7 @@
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run test/integration",
     "bootstrap": "tsx scripts/bootstrap.ts",
     "relocate": "tsx scripts/relocate.ts",
     "huginn": "tsx scripts/huginn.ts"

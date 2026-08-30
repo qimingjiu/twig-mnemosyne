@@ -4,3 +4,5 @@ process.env.DATABASE_URL ||= 'postgresql://test:test@127.0.0.1:5432/test'
 process.env.ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString('base64')
 process.env.MIGRATIONS_DIR ||= 'migrations'
 process.env.CONFIG_DIR ||= 'config'
+// 集成测试：TEST_DATABASE_URL 优先（runtime 全局 pool 与被测代码共用同一库）
+if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL

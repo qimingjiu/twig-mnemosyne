@@ -53,6 +53,14 @@ describe('§2.5.1 Webhook 校验链（VULN-13 / T8.5 SSRF）', () => {
     expect(await validateWebhookUrl('https://evil.example.com/x', opts)).toMatchObject({ ok: false, reason: 'host_not_in_allowlist' })
   })
 
+  it('白名单即信任声明：列内主机豁免内网段检查（LAN/本机联调）', async () => {
+    const opts = { allowInsecure: true, allowlist: ['127.0.0.1'] }
+    expect(await validateWebhookUrl('http://127.0.0.1:8085/hook', opts)).toMatchObject({ ok: true, host: '127.0.0.1' })
+    // 非白名单下的内网地址仍然拦截
+    expect(await validateWebhookUrl('http://127.0.0.1:8085/hook', { allowInsecure: true, allowlist: [] }))
+      .toMatchObject({ ok: false, reason: 'host_resolves_to_private_range' })
+  })
+
   it('非法 URL 直接拒绝', async () => {
     expect((await validateWebhookUrl('not a url', { allowInsecure: false, allowlist: [] })).ok).toBe(false)
   })

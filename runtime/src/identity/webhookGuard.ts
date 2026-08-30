@@ -81,16 +81,20 @@ export async function validateWebhookUrl(rawUrl: string, opts: WebhookGuardOptio
   if (u.protocol !== 'https:' && !(opts.allowInsecure && u.protocol === 'http:')) {
     return { ok: false, reason: 'scheme_not_allowed' }
   }
-  // 4. 可选白名单：配置后仅允许列内主机
-  if (opts.allowlist.length > 0 && !opts.allowlist.includes(u.hostname)) {
+  // 4. 可选白名单：配置后仅允许列内主机。白名单本身即信任声明——列内主机豁免
+  //    内网段检查（LAN 部署 / 本机联调场景），但仍要求 DNS 可解析（防拼写错误失效）。
+  const allowlisted = opts.allowlist.length > 0 && opts.allowlist.includes(u.hostname)
+  if (opts.allowlist.length > 0 && !allowlisted) {
     return { ok: false, reason: 'host_not_in_allowlist' }
   }
-  // 2/3. DNS 解析，任一地址落内网即拒绝
+  // 2/3. DNS 解析，任一地址落内网即拒绝（白名单主机豁免此检查）
   try {
     const addrs = await dns.lookup(u.hostname, { all: true })
     if (addrs.length === 0) return { ok: false, reason: 'dns_no_address' }
-    for (const a of addrs) {
-      if (isBlockedIp(a.address)) return { ok: false, reason: 'host_resolves_to_private_range' }
+    if (!allowlisted) {
+      for (const a of addrs) {
+        if (isBlockedIp(a.address)) return { ok: false, reason: 'host_resolves_to_private_range' }
+      }
     }
   } catch {
     return { ok: false, reason: 'dns_failure' }

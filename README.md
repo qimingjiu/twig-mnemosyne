@@ -64,12 +64,17 @@ bootstrap 输出 `eternal_id` 与唯一的 `client_key`（明文只出现这一�
 
 ### 外部构建上下文
 
-compose 中 `twig-memory` 与 `mcp-gateway` 是 `build:` 条目，需先就位：
+- `./twig-memory`：**已就位**。上游 muninn（twig-memory，用户已在 `D:\kimi\workspace\muninn` 完成 v0.3.1 配合修改）按 Dockerfile 需要的最小构建上下文复制至此（server / shared / visualizer/engine + package 文件，已剔除 eval-data、node_modules、日志；目录在 `.gitignore` 中，不入库）。上游修改源码后需重新复制。
+- `./mcp-gateway`：仍待放置——clone eznix86/mcp-gateway 并打上 §5.2 的扩展（lazy loading / 动态注册 / skill documents / broker 取件）。
 
-- `./twig-memory`：clone `qimingjiu/twig-memory`（锚定 @89a7881）；
-- `./mcp-gateway`：clone eznix86/mcp-gateway 并打上 §5.2 的扩展（lazy loading / 动态注册 / skill documents / broker 取件）。
+### 契约对齐记录（muninn 实测 @ 本地工作区）
 
-两者均已加入 `.gitignore`，仓库不内嵌上游源码。
+- `POST /v1/intervene` 已支持 `outcome` / `evidenceLevel`；`outcome='user_engaged'` + claimId 消费 remention 邀请（`status='redeemed'`，小写枚举）。
+- **再提邀请挂在 contested 论断上**（独立新证据 ≥3 + 否决冷却 14 天后由 reflect 生成），非 active 论断；邀请 30 天后上游不再注入 promptText，宿主侧 `invitationActive` 同步失效。
+- 宿主侧新增 **remention 7 天投递冷却**（`scanCandidate`）：dedupe_key 的 5 分钟桶只防同刻重放，防不了下一轮 cron 对同一 pending 邀请的重复兑现（§19.6 防纠缠）。
+- `GET /health` 返回 `{ok, llm, embed, auth}`；ingest 收 `{userId, text, title?, tags?[]}` 且强制 4000 字符上限；上游自带 per-user 限速（429）。
+- `threads` 仍无 `last_user_evidence_at` / `last_huginn_outreach_at` 字段 → vein-nudge 独立证据检测维持「7 天硬冷却 + evidenceLevel 降级」近似（R 请求仍有效）。
+- R1（`/v1/crisis-check`）上游尚未实现 → 危机词表继续 vendor 自 core.ts @89a7881。
 
 ## 对 v0.3.1 补丁的两处施工修正（需要你知道）
 
@@ -118,11 +123,23 @@ compose 中 `twig-memory` 与 `mcp-gateway` 是 `build:` 条目，需先就位�
 
 集成测试目录当前为空壳——起 docker 栈后补 T9.5/T9.6/T9.7/T9.11 的并发与崩溃注入用例，是下一步最高价值的工作。
 
-## 上游配合事项（§0.4 R1–R5 仍有效）
+## 上游配合事项（§0.4 R1–R5 状态）
 
-- R1 `/v1/crisis-check` 落地后，宿主词表切换为 API 调用；
-- R5 ingest 长度上限提升后，撤除 4000 字符切片过渡；
-- intervene 的 `outcome`/`evidenceLevel` 字段、`user_engaged → REDEEMED`、post_intervention 权重降级需 twig 侧同步施工（见补丁附录）。
+- ✅ **已落地（muninn 本地工作区）**：intervene 的 `outcome`/`evidenceLevel` 字段；`user_engaged → REDEEMED` 消费；`post_intervention` 碎片在 reflect 中权重降级（core.ts `evidenceLevel === 'post_intervention'` 过滤）。
+- ⏳ R1 `/v1/crisis-check`：未落地，宿主词表继续 vendor（锁定 @89a7881）。
+- ⏳ R5 ingest 长度上限：上游仍强制 4000 字符，宿主保留切片过渡。
+- ⏳ 证据时间戳（thread.last_user_evidence_at 等）：未提供，vein-nudge 独立证据公式维持近似。
+- ⏳ 宿主侧 deferred：用户对触达的回应更新为 `outcome='user_engaged'`（消费邀请）——需要先有回应来源（webhook 通道的用户回复关联），上游消费逻辑已就绪。
+
+## 集成测试
+
+`runtime/test/integration/`（identity 回环 / T9.5 并发抢槽 / T9.7 幂等投递 / T9.6+T9.11 outbox 恢复 / T9.8 幂等键唯一性 / INV-H03+H04 硬过滤）需要真实 Postgres，未配置时自动跳过：
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:pw@127.0.0.1:5432/mnemosyne_test npm run test:integration
+```
+
+compose 栈起来后可直接指向容器库跑：`docker compose exec mnemosyne npm run test:integration`（或在宿主机对 127.0.0.1:5432 跑）。
 
 ---
 
