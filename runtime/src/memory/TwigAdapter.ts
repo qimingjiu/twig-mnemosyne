@@ -3,7 +3,7 @@
  * 认证：单一全局 MUNINN_AUTH_TOKEN（Bearer）。用户隔离完全由 Mnemosyne Identity Layer 保证；
  * twig 实例在 compose 中仅绑定 127.0.0.1/内网（§13.3）。
  */
-import type { TwigClaim, TwigContextPacket, TwigHealth, AuditRecord } from './types.js'
+import type { TwigClaim, TwigContextPacket, TwigHealth, AuditRecord, TwigState, TwigJournalEntry, TwigNote, TwigStamp, TwigCalendar } from './types.js'
 
 export class TwigError extends Error {
   constructor(
@@ -58,6 +58,36 @@ export class TwigAdapter {
 
   lastAudit(userId: string): Promise<{ record: AuditRecord | null }> {
     return this.call<{ record: AuditRecord | null }>('GET', `/v1/audit/last?userId=${encodeURIComponent(userId)}`)
+  }
+
+  /** /v1/state 全量三层状态（调试 / 可视化用）；分页仅作用于 fragments。 */
+  getState(userId: string, page?: number, limit?: number): Promise<TwigState> {
+    const q = new URLSearchParams({ userId })
+    if (page != null) q.set('page', String(page))
+    if (limit != null) q.set('limit', String(limit))
+    return this.call<TwigState>('GET', `/v1/state?${q}`)
+  }
+
+  exportJournals(userId: string): Promise<{ userId: string; entries: TwigJournalEntry[] }> {
+    return this.call('GET', `/v1/journal/export?userId=${encodeURIComponent(userId)}&format=json`)
+  }
+
+  exportSoliloquies(userId: string): Promise<{ userId: string; entries: TwigJournalEntry[] }> {
+    return this.call('GET', `/v1/soliloquy/export?userId=${encodeURIComponent(userId)}&format=json`)
+  }
+
+  listNotes(userId: string, page = 1, limit = 20): Promise<{ notes: TwigNote[]; total: number }> {
+    return this.call('GET', `/v1/notes?userId=${encodeURIComponent(userId)}&page=${page}&limit=${limit}`)
+  }
+
+  recentStamps(userId: string, limit = 7): Promise<{ recent: TwigStamp[] }> {
+    return this.call('GET', `/v1/stamps/recent?userId=${encodeURIComponent(userId)}&limit=${limit}`)
+  }
+
+  calendar(userId: string, month?: string): Promise<TwigCalendar> {
+    const q = new URLSearchParams({ userId })
+    if (month) q.set('month', month)
+    return this.call('GET', `/v1/calendar?${q}`)
   }
 
   reflect(userId: string): Promise<unknown> {

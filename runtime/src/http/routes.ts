@@ -3,7 +3,6 @@
  * 限流（§13.4 职责声明）：应用层 per client_key 固定窗 + per IP，Redis 计数；Redis 异常 fail-open。
  */
 import type { FastifyInstance } from 'fastify'
-import type { Redis } from 'ioredis'
 import { z } from 'zod'
 import { env } from '../config.js'
 import { IdentityError, AttemptLimiter, resolveSession, registerClient, rotateClientKey, authClient, getUserById, type ClientRow, type UserRow } from '../identity/service.js'
@@ -12,6 +11,8 @@ import { renderMetrics } from '../observability/metrics.js'
 import { registerBrokerRoute } from '../broker/tokenBroker.js'
 import { redactText } from '../observability/redact.js'
 import { loadCapabilities, getForLane } from '../router/capabilities.js'
+import { extractClientKey, rateLimit } from './shared.js'
+import { registerWebRoutes } from './webRoutes.js'
 
 export interface RouteDeps extends ChatDeps {
   limiter: AttemptLimiter
@@ -44,25 +45,6 @@ const ChatBodySchema = z.object({
   stream: z.boolean().optional(),
   metadata: z.record(z.unknown()).optional(),
 })
-
-function extractClientKey(headers: Record<string, unknown>): string | null {
-  const x = headers['x-client-key']
-  if (typeof x === 'string' && x.startsWith('mn_')) return x
-  const auth = headers['authorization']
-  if (typeof auth === 'string' && auth.startsWith('Bearer mn_')) return auth.slice('Bearer '.length)
-  return null
-}
-
-async function rateLimit(redis: Redis, key: string, max: number, windowSec: number): Promise<boolean> {
-  try {
-    const bucket = `ratelimit:${key}:${Math.floor(Date.now() / (windowSec * 1000))}`
-    const n = await redis.incr(bucket)
-    if (n === 1) await redis.expire(bucket, windowSec)
-    return n <= max
-  } catch {
-    return true // fail-open：缓存层故障不拖垮主路径
-  }
-}
 
 async function webhookGuardOptions() {
   return {
@@ -235,6 +217,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   })
 
   registerBrokerRoute(app, { db: deps.db, box: deps.box })
+
+  // —— Y2K Dashboard BFF（web 前端唯一对话面；凭证在服务端持有）——
+  registerWebRoutes(app, deps)
 
   // —— Huginn → Telegram 出站（OutreachDeliverer 的 webhook 落点；内部共享密钥守卫）——
   app.post('/internal/outbound/telegram', async (req, reply) => {

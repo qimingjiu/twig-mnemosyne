@@ -255,6 +255,56 @@ export async function rotateClientKey(db: Db, client: ClientRow): Promise<string
   return clientKey
 }
 
+export interface WebLoginResult {
+  clientKey: string
+  user: UserRow
+  rotated: boolean
+}
+
+/**
+ * Web Dashboard 登录（BFF /v1/web/login）——master_key 换 web client_key 的可重复路径。
+ * UNIQUE(user_id, client_type) 使 register 无法二次注册 web；此处语义为：
+ * 已有 web client 则轮换其 key（旧浏览器会话失效），没有则新建（scopes 默认 chat）。
+ * master_key 只做 argon2 验证、绝不入库；T1.5 尝试限制与 register 同参数。
+ */
+export async function webLogin(
+  db: Db,
+  input: { eternalId: string; masterKey: string },
+  limiter: AttemptLimiter,
+  clientIp: string,
+): Promise<WebLoginResult> {
+  const user = await getUserByEternalId(db, input.eternalId)
+  const limiterKey = `${clientIp}:${input.eternalId}`
+  // 与 register 相同的统一 401 语义：用户不存在与凭证错误不可区分（防 eternal_id 枚举）
+  if (!user) {
+    limiter.allow(limiterKey, 1, 900_000)
+    throw new IdentityError(401, 'invalid_credential', 'invalid credential')
+  }
+  if (!limiter.allow(limiterKey, 10, 900_000)) {
+    throw new IdentityError(429, 'rate_limited', 'too many attempts')
+  }
+  const ok = await argon2Verify(user.master_key_hash, input.masterKey).catch(() => false)
+  if (!ok) throw new IdentityError(401, 'invalid_credential', 'invalid credential')
+
+  const clientKey = generateClientKey()
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM clients WHERE user_id = $1 AND client_type = 'web' LIMIT 1`,
+    [user.id],
+  )
+  if (rows[0]) {
+    await db.query('UPDATE clients SET key_hash = $1 WHERE id = $2', [sha256Hex(clientKey), rows[0].id])
+    limiter.reset(limiterKey)
+    return { clientKey, user, rotated: true }
+  }
+  await db.query(
+    `INSERT INTO clients (user_id, client_type, key_hash, display_name, scopes, metadata)
+     VALUES ($1, 'web', $2, $3, '{chat}', '{}')`,
+    [user.id, sha256Hex(clientKey), 'Y2K Dashboard'],
+  )
+  limiter.reset(limiterKey)
+  return { clientKey, user, rotated: false }
+}
+
 export interface ResolveSessionResult {
   sessionId: string
   eternalSessionId: string

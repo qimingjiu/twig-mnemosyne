@@ -61,14 +61,15 @@ interface TgDeps extends ChatDeps {
 }
 
 async function findTgClient(db: Pool, chatId: number): Promise<ClientRow | null> {
-  // 注意：jsonb `?` 只匹配字符串元素，chat_ids 存的是数字数组——用 elements_text 做文本比较（两者兼容）
+  // 两个坑都已实弹踩过：jsonb `?` 只匹配字符串元素；子查询别名若叫 id 会与 clients.id(uuid)
+  // 撞名导致参数被推断成 uuid。用显式别名 e(e) + ::text 比较。
   const { rows } = await db.query<ClientRow>(
     `SELECT id, user_id, client_type, key_hash, display_name, webhook_url, scopes, is_active, metadata
        FROM clients
       WHERE client_type = 'telegram' AND is_active = TRUE
         AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(COALESCE(metadata->'chat_ids', '[]'::jsonb)) AS id
-           WHERE id = $1
+          SELECT 1 FROM jsonb_array_elements_text(COALESCE(metadata->'chat_ids', '[]'::jsonb)) AS e(e)
+           WHERE e.e::text = $1
         )`,
     [String(chatId)],
   )

@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     [userId],
   )
   if (existing[0]) {
-    const ids = Array.from(new Set([...(existing[0].metadata?.chat_ids ?? []), Number(chatId)]))
+    const ids = Array.from(new Set([...(existing[0].metadata?.chat_ids ?? []), String(chatId)]))
     await pool.query(
       `UPDATE clients SET metadata = jsonb_set(metadata, '{chat_ids}', $2::jsonb), webhook_url = $3 WHERE id = $1`,
       [existing[0].id, JSON.stringify(ids), INTERNAL_WEBHOOK],
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     await pool.query(
       `INSERT INTO clients (user_id, client_type, key_hash, display_name, webhook_url, scopes, metadata)
        VALUES ($1, 'telegram', $2, 'Telegram bot', $3, '{chat}', $4::jsonb)`,
-      [userId, sha256Hex(key), INTERNAL_WEBHOOK, JSON.stringify({ chat_ids: [Number(chatId)] })],
+      [userId, sha256Hex(key), INTERNAL_WEBHOOK, JSON.stringify({ chat_ids: [String(chatId)] })],
     )
     console.log(`client_key（仅此一次）: ${key}`)
   }
