@@ -79,7 +79,7 @@
         <button class="active" data-tab="journal"><span class="gk">ἩΜΕΡΑΙ</span>日记</button>
         <button data-tab="soliloquy"><span class="gk">ΜΟΝΟΛΟΓΟΣ</span>心迹</button>
         <button data-tab="notes"><span class="gk">ΣΗΜΕΙΑ</span>便签</button>
-        <button data-tab="stamps"><span class="gk">ΣΦΡΑΓΙΔΕΣ</span>印章</button>
+        <button data-tab="shells"><span class="gk">ΚΟΓΧΗ</span>拾贝 · 珊瑚</button>
       </div>
 
       <!-- 日记：reflect 时由引擎写成（§8.2），石碑陈列 -->
@@ -107,7 +107,7 @@
             </div>
             <div class="stele-body">
               连续第七次夜跑。她说「今天不想跑，但鞋带自己系好了」。习惯大概就是这样：先由意志推动，后由惯性接住。<br><br>
-              给她盖一枚月桂印吧。七次，配得上月桂了。
+              给夜跑的珊瑚丛添一杈新枝吧。七次，珊瑚开始成形了。
             </div>
             <div class="stele-foot">
               <span class="mono">journal · reflect 生成</span>
@@ -181,59 +181,65 @@
         </div>
       </div>
 
-      <!-- 印章：石刻圆印 -->
-      <div class="tab-panel" id="tab-stamps">
+      <!-- 拾贝与珊瑚：Mnemosyne 自有收藏隐喻（印章与玻璃珠归衔枝自呈） -->
+      <div class="tab-panel" id="tab-shells">
         <div class="card card-pad">
-          <div class="seal-grid">
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><path d="M26 7 A14.5 14.5 0 1 0 33 26 A11.5 11.5 0 0 1 26 7 Z" fill="none" stroke="#8C6F38" stroke-width="1.6"/></svg>
-              </div>
-              <div class="seal-name">月 · 长谈之夜</div>
-              <div class="seal-meta">2026.08.29 · bead</div>
-              <div class="seal-note">聊到凌晨一点，关于独立开发</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">拾贝滩</b>
+            <span class="sec-note">潮退之后，沙滩上留下的都是值得捡的。</span>
+          </div>
+          <div class="shell-grid mt14">
+            <div class="shell-item">
+              <svg width="42" height="42" viewBox="0 0 42 42"><g fill="none" stroke="#8C6F38" stroke-width="1.5" stroke-linecap="round"><path d="M21 34 L9 16 A13 13 0 0 1 33 16 Z"/><path d="M21 34 L13.5 8.5 M21 34 L21 6.5 M21 34 L28.5 8.5"/><path d="M17.5 36.5 H24.5"/></g></svg>
+              <div class="shell-name">扇贝 ·「我想试试自己做」</div>
+              <div class="shell-note">说出口的那个瞬间，边缘还带着潮水的光。</div>
+              <div class="shell-date">2026.08.29</div>
             </div>
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><g fill="none" stroke="#8C6F38" stroke-width="1.6"><circle cx="20" cy="11" r="3.4"/><path d="M20 14.5 V30 M12 20 H28 M10 26 Q10 32 20 32 Q30 32 30 26"/></g></svg>
-              </div>
-              <div class="seal-name">锚 · 决定初定</div>
-              <div class="seal-meta">2026.08.26 · bead</div>
-              <div class="seal-note">「我想试试自己做」第一次说出口</div>
+            <div class="shell-item">
+              <svg width="42" height="42" viewBox="0 0 42 42"><g fill="none" stroke="#8C6F38" stroke-width="1.5" stroke-linecap="round"><path d="M21 8 A13 13 0 1 0 34 21 A10 10 0 1 1 24 21 A6 6 0 1 0 30 21"/><path d="M21 34 Q13 30 12 22"/></g></svg>
+              <div class="shell-name">海螺 ·《奥德赛》读完</div>
+              <div class="shell-note">放在耳边，能听见归航。</div>
+              <div class="shell-date">2026.08.18</div>
             </div>
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><g fill="none" stroke="#8C6F38" stroke-width="1.6"><path d="M14 30 Q10 20 16 10 Q26 8 28 18 Q28 28 18 30"/><path d="M16 27 Q20 20 25 14"/></g></svg>
-              </div>
-              <div class="seal-name">月桂 · 夜跑七日</div>
-              <div class="seal-meta">2026.08.24 · bead</div>
-              <div class="seal-note">连续七次，惯性接住了意志</div>
+            <div class="shell-item">
+              <svg width="42" height="42" viewBox="0 0 42 42"><g fill="none" stroke="#8C6F38" stroke-width="1.5" stroke-linecap="round"><path d="M8 24 A13 10 0 0 1 34 24"/><path d="M8 24 A13 7 0 0 0 34 24"/><circle cx="21" cy="22" r="3"/></g></svg>
+              <div class="shell-name">珠母贝 · 第一笔自由基金</div>
+              <div class="shell-note">沙砾进壳的时候，谁也不知道会变成珍珠。</div>
+              <div class="shell-date">2026.08.15</div>
             </div>
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><g fill="none" stroke="#8C6F38" stroke-width="1.6"><path d="M6 22 Q11 16 16 22 T26 22 T36 22"/><path d="M6 29 Q11 23 16 29 T26 29 T36 29"/></g></svg>
-              </div>
-              <div class="seal-name">潮 · 情绪已回升</div>
-              <div class="seal-meta">2026.08.21 · bead</div>
-              <div class="seal-note">三次「没事」，潮水退去的曲线</div>
-            </div>
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><g fill="none" stroke="#8C6F38" stroke-width="1.6"><rect x="11" y="9" width="18" height="22" rx="2"/><path d="M15 14 H25 M15 18 H25 M15 22 H21"/></g></svg>
-              </div>
-              <div class="seal-name">卷 · 读完《奥德赛》</div>
-              <div class="seal-meta">2026.08.18 · bead</div>
-              <div class="seal-note">「归航的人从不着急」——她划了线</div>
-            </div>
-            <div class="seal">
-              <div class="seal-disc">
-                <svg width="40" height="40" viewBox="0 0 40 40"><g fill="none" stroke="#8C6F38" stroke-width="1.6"><path d="M14 10 H26 M16 10 Q13 16 15 21 Q17 26 15 31 H25 Q23 26 25 21 Q27 16 24 10"/><path d="M12 31 H28"/></g></svg>
-              </div>
-              <div class="seal-name">瓮 · 自由基金</div>
-              <div class="seal-meta">2026.08.15 · bead</div>
-              <div class="seal-note">第一笔「我可以试」的底气</div>
+            <div class="shell-item">
+              <svg width="42" height="42" viewBox="0 0 42 42"><g fill="none" stroke="#8C6F38" stroke-width="1.5" stroke-linecap="round"><path d="M24 9 A12 12 0 1 0 24 33 A9.5 9.5 0 1 1 24 14 A6.5 6.5 0 1 0 24 27"/><path d="M24 33 Q30 30 33 24"/></g></svg>
+              <div class="shell-name">鹦鹉螺 · 第七次夜跑</div>
+              <div class="shell-note">螺旋的每一圈，都是同一个晚上。</div>
+              <div class="shell-date">2026.08.24</div>
             </div>
           </div>
+          <div class="stat-sub mt14">印章与玻璃珠系统归衔枝（twig）自呈，不在此册（§18.1）；此处只拾贝、养珊瑚。</div>
+        </div>
+
+        <div class="reef mt14">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">珊瑚礁</b>
+            <span class="sec-note">珊瑚不追潮水。它只在原地，慢慢长成形状。</span>
+          </div>
+          <div class="reef-row">
+            <div class="reef-item">
+              <svg width="100" height="96" viewBox="0 0 100 96"><g transform="translate(50 94) scale(1.05) translate(-50 -94)"><g fill="none" stroke="#C1663E" stroke-width="2.4" stroke-linecap="round"><path d="M50 94 V58"/><path d="M50 66 Q38 58 34 44"/><path d="M50 62 Q62 56 66 42"/><path d="M34 44 Q28 38 28 28"/><path d="M34 44 Q40 38 41 30"/><path d="M66 42 Q72 36 73 27"/><path d="M50 58 Q56 48 55 38"/><path d="M55 38 Q52 30 54 22"/></g><g fill="#C1663E"><circle cx="28" cy="26" r="2.2"/><circle cx="41" cy="28" r="2.2"/><circle cx="73" cy="25" r="2.2"/><circle cx="54" cy="20" r="2.2"/><circle cx="66" cy="40" r="2"/><circle cx="34" cy="42" r="2"/></g></g></svg>
+              <div class="reef-name">夜跑珊瑚丛</div>
+              <div class="reef-meta">连续 7 日 · 生长中，每日 +1 杈</div>
+            </div>
+            <div class="reef-item">
+              <svg width="100" height="96" viewBox="0 0 100 96"><g transform="translate(50 94) scale(.85) translate(-50 -94)" opacity=".45"><g fill="none" stroke="#C1663E" stroke-width="2.4" stroke-linecap="round"><path d="M50 94 V58"/><path d="M50 66 Q38 58 34 44"/><path d="M50 62 Q62 56 66 42"/><path d="M34 44 Q28 38 28 28"/><path d="M66 42 Q72 36 73 27"/><path d="M50 58 Q56 48 55 38"/></g><g fill="#C1663E"><circle cx="28" cy="26" r="2.2"/><circle cx="73" cy="25" r="2.2"/><circle cx="55" cy="36" r="2"/></g></g></svg>
+              <div class="reef-name">希腊语珊瑚</div>
+              <div class="reef-meta"><span style="color:var(--terra)">三天未浇水</span> · 词汇 340</div>
+            </div>
+            <div class="reef-item">
+              <svg width="100" height="96" viewBox="0 0 100 96"><g transform="translate(50 94) scale(.62) translate(-50 -94)"><g fill="none" stroke="#C1663E" stroke-width="2.4" stroke-linecap="round"><path d="M50 94 V58"/><path d="M50 66 Q38 58 34 44"/><path d="M50 62 Q62 56 66 42"/><path d="M34 44 Q28 38 28 28"/><path d="M34 44 Q40 38 41 30"/><path d="M66 42 Q72 36 73 27"/></g><g fill="#C1663E"><circle cx="28" cy="26" r="2.2"/><circle cx="41" cy="28" r="2.2"/><circle cx="73" cy="25" r="2.2"/></g></g></svg>
+              <div class="reef-name">自由基金珊瑚</div>
+              <div class="reef-meta">每月一杈 · 已 3 杈</div>
+            </div>
+          </div>
+          <div class="reef-floor">砂 · 生长状态由每日 reflect 巡检（§8.4）</div>
         </div>
       </div>
     </div>

@@ -21,8 +21,10 @@ describe('§2.2 身份层（VULN-02 修复）', () => {
     expect(generateClientKey()).not.toBe(key)
   })
 
-  it('eternal_session_id 形态：sess_ + 64-hex（CSPRNG 32B）', () => {
-    expect(isValidEternalSessionId(`sess_${'a'.repeat(64)}`)).toBe(true)
+  it('eternal_session_id 形态：sess_ + 64-hex（CSPRNG 32B）= 69 字符，列宽 VARCHAR(128)（migrations/004）', () => {
+    const id = `sess_${'a'.repeat(64)}`
+    expect(id).toHaveLength(69)
+    expect(isValidEternalSessionId(id)).toBe(true)
     expect(isValidEternalSessionId('sess_short')).toBe(false)
     expect(isValidEternalSessionId('sess_' + 'g'.repeat(64))).toBe(false)
   })

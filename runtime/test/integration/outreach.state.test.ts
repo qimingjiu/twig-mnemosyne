@@ -186,6 +186,9 @@ describe.skipIf(!hasDb())('outreach state machine (integration)', () => {
     const delivered = (await outreachRows(user.id)).find(r => r.status === 'delivered')
     expect(delivered?.intervention_status).toBe('pending')
 
+    // worker 的退避闸门：投递后 60s 内不补报——测试把 updated_at 回拨跳过等待
+    await db.query(`UPDATE outreach SET updated_at = NOW() - INTERVAL '5 minutes' WHERE user_id = $1`, [user.id])
+
     await runOutboxWorker({ db, twig: deps.twig, cfg: testCfg })
     expect(interventions).toHaveLength(1)
     expect(interventions[0]?.extra?.evidenceLevel).toBe('post_intervention') // 权重降级信号
