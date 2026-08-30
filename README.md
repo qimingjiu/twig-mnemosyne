@@ -65,7 +65,7 @@ bootstrap 输出 `eternal_id` 与唯一的 `client_key`（明文只出现这一�
 ### 外部构建上下文
 
 - `./twig-memory`：**已就位**。上游 muninn（twig-memory，用户已在 `D:\kimi\workspace\muninn` 完成 v0.3.1 配合修改）按 Dockerfile 需要的最小构建上下文复制至此（server / shared / visualizer/engine + package 文件，已剔除 eval-data、node_modules、日志；目录在 `.gitignore` 中，不入库）。上游修改源码后需重新复制。
-- `./mcp-gateway`：仍待放置——clone eznix86/mcp-gateway 并打上 §5.2 的扩展（lazy loading / 动态注册 / skill documents / broker 取件）。
+- `./mcp-gateway`：**已并入本仓库**（2026-08-30）。原计划的 eznix86 fork 由自有轻量实现替代——`qimingjiu/mcp-gateway`（鸦巢网关）已演化成 TG 陪伴 bot，不再承担工具路由职责；新实现保留其扩展语义（懒连接 / 工具聚合 / skill_document 透传），并内置 `core` server 保证任何部署都有可 E2E 验证的工具。NOTICE.md 保留 eznix86 致谢。
 
 ### 契约对齐记录（muninn 实测 @ 本地工作区）
 
@@ -93,15 +93,18 @@ bootstrap 输出 `eternal_id` 与唯一的 `client_key`（明文只出现这一�
 
 | 项 | 位置 | 说明 |
 |---|---|---|
-| 工具执行回路 | chat/pipeline | 依赖 mcp-gateway fork；确认票据（§4.6）与 contested 域检查（§4.7）已实现并测试 |
-| LangGraph StateGraph | router/lanes | 当前为单分类器轻量实现；postgresCheckpointer 加密落库待工具回路后接入 |
+| 工具 schema 检索（§5.2.2 SCOUT） | tools/resolver | 当前按泳道全量注入（个人规模 ~10 工具足够）；BM25+向量混合检索待工具数量增长后接 |
+| Broker 短票动态取件 | mcp-gateway | OAuth 型远程 MCP server 接入时启用（§5.3 端点已就绪并测试） |
+| LangGraph StateGraph | router/lanes | 单分类器轻量实现已满足泳道收敛；图编排待复杂泳道需求 |
 | 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；exact/context 两层已覆盖 |
-| 流式响应 | http/routes | v0.3.1 request-response 边界内，返回 501 |
-| DNS rebinding 钉扎 | identity/webhookGuard | 当前为投递前重解析近似；严格版需 undici Dispatcher 钉 IP |
-| Y2K Dashboard | — | 独立前端仓库；/metrics 与 /v1/admin/* 已就绪 |
-| OTel → Collector | observability | 当前 prom-client 直采（务实 v0） |
-| Skill Forge（§22） | — | 依赖工具回路的 AgentTrace；蒸馏约束见 §22.2 |
-| vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无 last_user_evidence_at 字段，以 7 天硬冷却 + evidenceLevel 降级近似（代码内注明） |
+| 流式响应 | http/routes | 返回 501 |
+| DNS rebinding 钉扎 | identity/webhookGuard | 投递前重解析近似；严格版需 undici Dispatcher 钉 IP |
+| Y2K Dashboard | — | 记忆书前端由用户独立开发（web/ 原型）；/metrics 与 /v1/admin/* 已就绪 |
+| OTel → Collector | observability | prom-client 直采（务实 v0） |
+| Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
+| vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似 |
+| Telegram 激活 | telegram/adapter | 代码+绑定脚本就绪；填 TELEGRAM_BOT_TOKEN + 绑 chat_id 即活（见 deploy/zeabur.md） |
+| 自动备份 | — | backup.sh 为 VPS 路线；Zeabur 路线待接定时任务（设计债务，同 §24 硬件层） |
 
 ## 红队用例覆盖映射（§12.2 → test/）
 
