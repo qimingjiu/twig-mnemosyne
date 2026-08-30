@@ -12,3 +12,6 @@ uploads/
 /twig-memory/
 /mcp-gateway/
 /skills/
+
+# Zeabur 生成的本地密钥文件，不入库
+deploy/secrets.*.env
