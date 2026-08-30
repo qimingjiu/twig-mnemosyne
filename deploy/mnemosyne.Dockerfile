@@ -21,6 +21,10 @@ COPY --from=build /build/dist ./dist
 COPY --from=build /build/package.json ./package.json
 COPY runtime/migrations ./migrations
 COPY config ./config
+# 红队集成套件在容器内可跑（vitest 直接消费 TS 源码）
+COPY runtime/tsconfig.json runtime/vitest.config.ts ./
+COPY runtime/src ./src
+COPY runtime/test ./test
 USER mnemo
 EXPOSE 8000
 CMD ["node", "dist/src/index.js"]
