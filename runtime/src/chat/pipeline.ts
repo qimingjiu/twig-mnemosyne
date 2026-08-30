@@ -19,13 +19,17 @@ import { buildCacheKey, narrativeVersionOf } from '../cache/keys.js'
 import { exactGet, exactSet } from '../cache/exact.js'
 import { contextCacheKey, contextGet, contextSet } from '../cache/contextCache.js'
 import { shouldCache } from '../cache/policy.js'
-import { isRetryableError, LiteLlmError, type ChatResult } from '../gateways/litellm.js'
+import { isRetryableError, LiteLlmError, type ChatResult, type ChatMessage, type ToolCallSpec } from '../gateways/litellm.js'
 import { classifyLane } from '../router/lanes.js'
 import { privacyScore } from '../privacy/score.js'
 import { recordUsage } from '../usage/engine.js'
 import type { MemoryIngestionPipeline } from '../memory/ingestion.js'
 import type { TwigAdapter } from '../memory/TwigAdapter.js'
 import type { ModelGateway } from '../gateways/litellm.js'
+import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs } from '../tools/resolver.js'
+import type { McpGatewayClient } from '../tools/executor.js'
+import { contestedGate } from '../tools/contested.js'
+import { issueTicket, verifyTicket } from '../router/confirmation.js'
 import { estimateTokens } from '../util/tokens.js'
 import { Box } from '../util/crypto.js'
 import { shouldTTS, ttsSanitize, synthesizeTts, stashAudio } from '../voice/tts.js'
@@ -39,6 +43,7 @@ export interface ChatDeps {
   builder: ContextBuilder
   ingestion: MemoryIngestionPipeline
   box: Box
+  mcp: McpGatewayClient
 }
 
 export interface ChatRequest {
@@ -120,6 +125,13 @@ export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Pr
       [req.user.id, String(env.CRISIS_SILENCE_HOURS)],
     )
   }
+
+  // 对话事实源先落库（§8.1）：工具轮次/缓存命中路径都以此为准，finalize 不重复写
+  await deps.db.query(
+    `INSERT INTO conversation_messages (session_id, role, content, token_count)
+     VALUES ($1, 'user', $2, $3)`,
+    [session.sessionId, currentMessage, estimateTokens(currentMessage)],
+  )
 
   // §10.2 唯一意图决策点 + §20.2 隐私评分（分类器只读信号）
   const laneRecent = await quickRecent(deps.db, session.sessionId, 4)
@@ -222,6 +234,123 @@ interface LoopState {
   lane: string
   narrativeVersion: string | null
   privacyLane: 'cloud' | 'local'
+  /** 用户消息已在管线入口落库（finalize 跳过重复插入） */
+  userPersisted?: boolean
+  /** 工具回路统计（§5） */
+  toolMeta?: { rounds: number; executed: number; pending: number }
+}
+
+/** §10.5：工具回路硬上限 */
+const MAX_TOOL_ROUNDS = 10
+const TOOL_LOOP_DEADLINE_MS = 60_000
+
+interface ToolLoopOutcome {
+  result: ChatResult
+  meta: { rounds: number; executed: number; pending: number }
+}
+
+function rawSpecs(calls: { id: string; name: string; args: string }[]): ToolCallSpec[] {
+  return calls.map(c => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args } }))
+}
+
+async function safeToolCall(deps: ChatDeps, server: string, tool: string, args: Record<string, unknown>): Promise<string> {
+  try {
+    return (await deps.mcp.call(server, tool, args)) || '(empty result)'
+  } catch (e) {
+    return `error: ${e instanceof Error ? e.message : String(e)}`
+  }
+}
+
+/**
+ * §5 工具执行回路：模型发起 tool_calls → contested 检查（§4.7）→ 确认票（§4.6）→ MCP 执行 →
+ * 结果回灌 → 模型继续，直至给出最终回答或触及轮次/时限上限。
+ * 确认闭环：首次调用返回 confirmation_required 合成 tool 结果并签发票据（redis 5 分钟）；
+ * 用户回复「确认」后模型重新发起同一调用，票据按 session+tool+argsHash 验签兑现；
+ * 用户回复「取消」则作废票据。
+ */
+async function executeToolLoop(
+  deps: ChatDeps,
+  req: ChatRequest,
+  st: LoopState,
+  model: string,
+  built: BuiltContext,
+): Promise<ToolLoopOutcome> {
+  const spec = lookupModel(model)
+  // §20：local lane 降级纯对话，不暴露工具 schema
+  const laneTools = !spec || spec.lane === 'local' || st.privacyLane === 'local' ? [] : toolsForLane(st.lane)
+  const openAiTools = toOpenAiTools(laneTools)
+  const currentMessage = extractText(req.messages.at(-1)?.content)
+  const cancelled = /取消/.test(currentMessage)
+  const pendingKey = `confirm:pending:${st.session.sessionId}`
+  const convo: ChatMessage[] = [...built.messages, { role: 'user', content: currentMessage }]
+  const deadline = Date.now() + TOOL_LOOP_DEADLINE_MS
+  const meta = { rounds: 0, executed: 0, pending: 0 }
+
+  for (;;) {
+    const result = await deps.gateway.chat(model, convo, { temperature: st.temperature, tools: openAiTools })
+    const calls = result.toolCalls ?? []
+    if (calls.length === 0 || meta.rounds >= MAX_TOOL_ROUNDS || Date.now() > deadline) {
+      if (calls.length > 0 && result.content === '') {
+        result.content = '（工具执行轮次已达上限，先回答到这里。）'
+      }
+      return { result, meta }
+    }
+    meta.rounds++
+
+    convo.push({ role: 'assistant', content: result.content ?? '', tool_calls: rawSpecs(calls) })
+    await deps.db.query(
+      `INSERT INTO conversation_messages (session_id, role, content, tool_calls, model_used)
+       VALUES ($1, 'assistant', $2, $3, $4)`,
+      [st.session.sessionId, result.content ?? '', JSON.stringify(rawSpecs(calls)), model],
+    )
+
+    for (const call of calls) {
+      const rt = resolveTool(call.name, laneTools)
+      let resultText: string
+      if (!rt) {
+        resultText = `error: unknown tool ${call.name}`
+      } else {
+        let args: Record<string, unknown> = {}
+        try { args = typeof call.args === 'string' ? JSON.parse(call.args || '{}') as Record<string, unknown> : call.args } catch { args = {} }
+
+        const contested = await contestedGate(deps.twig, req.user.eternal_id, rt.capability)
+        const needConfirm = rt.confirmationRequired || contested
+        const pendingRaw = needConfirm ? await deps.redis.get(pendingKey) : null
+        let redeemed = false
+        if (pendingRaw) {
+          const p = JSON.parse(pendingRaw) as { ticket: string; fnName: string }
+          if (p.fnName === rt.fnName) {
+            const verdict = verifyTicket(p.ticket, { sid: st.session.sessionId, tool: rt.fnName, args }, env.CONFIRM_SECRET)
+            if (verdict.ok) redeemed = true
+          }
+        }
+
+        if (needConfirm && cancelled && pendingRaw) {
+          await deps.redis.del(pendingKey)
+          resultText = JSON.stringify({ status: 'cancelled', prompt: '用户已取消本次操作。请告知用户操作已取消。' })
+        } else if (needConfirm && !redeemed) {
+          const ticket = issueTicket({ sid: st.session.sessionId, tool: rt.fnName, args }, env.CONFIRM_SECRET)
+          await deps.redis.set(pendingKey, JSON.stringify({ ticket, fnName: rt.fnName }), 'EX', 300)
+          meta.pending++
+          resultText = JSON.stringify({
+            status: contested ? 'contested_ask_user_first' : 'confirmation_required',
+            prompt: `我需要执行 ${rt.fnName}（${summarizeArgs(args)}）。${contested ? '注意：你此前否决过与这相关的偏好，请先确认是否仍要执行。' : ''}请回复「确认」执行，或「取消」放弃。`,
+          })
+        } else {
+          if (needConfirm && redeemed) await deps.redis.del(pendingKey)
+          meta.executed++
+          resultText = await safeToolCall(deps, rt.server, rt.tool, args)
+        }
+      }
+
+      convo.push({ role: 'tool', tool_call_id: call.id, content: resultText.slice(0, 4000) })
+      await deps.db.query(
+        `INSERT INTO conversation_messages (session_id, role, content, tool_results)
+         VALUES ($1, 'tool', $2, $3)`,
+        [st.session.sessionId, resultText.slice(0, 4000), JSON.stringify({ tool_call_id: call.id, fn: call.name })],
+      )
+    }
+  }
 }
 
 /**
@@ -262,12 +391,10 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
 
     const t0 = Date.now()
     try {
-      result = await deps.gateway.chat(
-        model,
-        [...builtForModel.messages, { role: 'user', content: extractText(req.messages.at(-1)?.content) }],
-        { temperature: st.temperature },
-      )
+      const outcome = await executeToolLoop(deps, req, st, model, builtForModel)
       latencySeconds.observe({ stage: 'model.call', provider: spec.provider }, (Date.now() - t0) / 1000)
+      result = outcome.result
+      st.toolMeta = outcome.meta
       usedModel = model
       break
     } catch (e) {
@@ -342,14 +469,8 @@ async function finalize(
     }
   }
 
-  // 对话持久化（DB = 会话 replay 与审计的事实源，§8.1）；exact 命中同样落库（保持 DB 与用户实际经历一致）
-  const userTokens = estimateTokens(currentMessage)
+  // 对话持久化（§8.1）：用户消息已在管线入口落库；exact 命中同样落助手行（保持 DB 与用户实际经历一致）
   const assistantTokens = estimateTokens(st.content)
-  await deps.db.query(
-    `INSERT INTO conversation_messages (session_id, role, content, token_count, model_used, tokens_input, latency_ms, was_tts)
-     VALUES ($1, 'user', $2, $3, $4, $5, $6, FALSE)`,
-    [st.session.sessionId, currentMessage, userTokens, st.usedModel, st.result?.promptTokens ?? 0, st.result?.latencyMs ?? 0],
-  )
   const { rows: asstRows } = await deps.db.query<{ id: string }>(
     `INSERT INTO conversation_messages (session_id, role, content, token_count, model_used, tokens_output, latency_ms, was_tts)
      VALUES ($1, 'assistant', $2, $3, $4, $5, $6, $7) RETURNING id`,
@@ -357,15 +478,17 @@ async function finalize(
   )
   const assistantMessageId = asstRows[0]?.id
 
-  // 缓存写（§7.6 Policy；危机/local 不写）
+  // 缓存写（§7.6 Policy；危机/local 不写；工具轮次短 TTL；待确认会话不缓存——下一轮语境会变）
+  const toolUsed = (st.toolMeta?.executed ?? 0) > 0 || (st.toolMeta?.pending ?? 0) > 0
   if (!st.crisis && st.privacyLane === 'cloud' && st.built) {
     const decision = shouldCache({
       crisis: false,
       status: 200,
       metadata: req.metadata as { cache?: boolean } | undefined,
-      hasToolResults: req.messages.some(m => m.role === 'tool'),
+      hasToolResults: req.messages.some(m => m.role === 'tool') || toolUsed,
     })
-    if (decision.shouldCache && decision.ttl) {
+    const cacheable = decision.shouldCache && (st.toolMeta?.pending ?? 0) === 0
+    if (cacheable && decision.ttl) {
       const exactKey = buildCacheKey('exact', req.user.eternal_id, st.built.narrativeVersion,
         [...st.built.messages, { role: 'user', content: currentMessage }], st.usedModel, { temperature: st.temperature })
       await exactSet(deps.redis, exactKey, { response: st.content, model: st.usedModel, output_tokens: st.result?.completionTokens ?? 0 }, decision.ttl)
@@ -441,6 +564,7 @@ async function finalize(
         route_reason: st.routeReason,
         fallback_count: st.fallbackCount,
         assistant_message_id: assistantMessageId,
+        ...(st.toolMeta ? { tool_rounds: st.toolMeta.rounds, tool_executed: st.toolMeta.executed, tool_pending: st.toolMeta.pending } : {}),
       },
     },
   }

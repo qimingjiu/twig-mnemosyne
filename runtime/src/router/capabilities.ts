@@ -30,6 +30,8 @@ interface CapFile {
   lanes: Record<string, string[]>
   cap_domains: { contested_keywords: Record<string, string[]> }
   capabilities: Record<string, Omit<Capability, 'name'>>
+  /** §5：capability provider → mcp-gateway server 名 */
+  mcp_servers?: Record<string, string>
 }
 
 let cache: CapFile | null = null

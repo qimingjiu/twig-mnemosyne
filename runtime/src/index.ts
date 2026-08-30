@@ -13,6 +13,8 @@ import { ContextBuilder } from './context/builder.js'
 import { Box } from './util/crypto.js'
 import { AttemptLimiter, authClient, getUserById } from './identity/service.js'
 import { registerRoutes } from './http/routes.js'
+import { McpGatewayClient } from './tools/executor.js'
+import { startTelegramPolling } from './telegram/adapter.js'
 import { loadHuginnConfig } from './outreach/policy.js'
 import { runScan, defaultGuard } from './outreach/pipeline.js'
 import { runOutboxWorker } from './outreach/outboxWorker.js'
@@ -71,6 +73,7 @@ async function main(): Promise<void> {
     },
   })
 
+  const mcp = new McpGatewayClient()
   registerRoutes(app, {
     db: pool,
     redis,
@@ -79,9 +82,16 @@ async function main(): Promise<void> {
     builder,
     ingestion,
     box,
+    mcp,
     limiter: new AttemptLimiter(),
     identityAuth: k => authClient(pool, k),
     userOf: id => getUserById(pool, id),
+  })
+
+  // §1 传输层：Telegram 长轮询（token 缺省时自动关闭）
+  startTelegramPolling({
+    db: pool, redis, twig, gateway, builder, ingestion, box, mcp,
+    botToken: env.TELEGRAM_BOT_TOKEN,
   })
 
   // Huginn 调度（§19.3/v0.3.1）：主管线 cron + Outbox Worker 轮询

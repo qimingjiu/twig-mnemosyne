@@ -3,10 +3,19 @@
  * Mnemosyne（TS）= 路由大脑：每个请求以显式 model 参数调用（§6.3）。
  */
 
+export interface ToolCallSpec {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   cache_control?: { type: 'ephemeral' }
+  tool_calls?: ToolCallSpec[]
+  tool_call_id?: string
+  name?: string
 }
 
 export interface ChatResult {
@@ -17,6 +26,8 @@ export interface ChatResult {
   completionTokens: number
   cachedTokens: number
   latencyMs: number
+  /** 模型请求的工具调用（§5 工具执行回路） */
+  toolCalls?: { id: string; name: string; args: string }[]
 }
 
 export class LiteLlmError extends Error {
@@ -39,6 +50,11 @@ export interface ChatOptions {
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
+  /** §5：注入的工具 schema（OpenAI function calling 格式） */
+  tools?: {
+    type: 'function'
+    function: { name: string; description: string; parameters: unknown }
+  }[]
 }
 
 export class ModelGateway {
@@ -62,6 +78,7 @@ export class ModelGateway {
           messages,
           ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
           ...(opts.maxTokens !== undefined ? { max_tokens: opts.maxTokens } : {}),
+          ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, tool_choice: 'auto' } : {}),
         }),
         signal: opts.signal ?? AbortSignal.timeout(120_000),
       })
@@ -74,7 +91,12 @@ export class ModelGateway {
     const data = (await res.json()) as {
       id?: string
       model?: string
-      choices?: { message?: { content?: string } }[]
+      choices?: {
+        message?: {
+          content?: string
+          tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[]
+        }
+      }[]
       usage?: {
         prompt_tokens?: number
         completion_tokens?: number
@@ -83,6 +105,14 @@ export class ModelGateway {
     }
     const choice = data.choices?.[0]
     const usage = data.usage
+    const rawCalls = choice?.message?.tool_calls ?? []
+    const toolCalls = rawCalls.length > 0
+      ? rawCalls.map((c, i) => ({
+          id: c.id ?? `call_${i}`,
+          name: c.function?.name ?? '',
+          args: c.function?.arguments ?? '{}',
+        }))
+      : undefined
     return {
       id: data.id ?? `chatcmpl-${Date.now()}`,
       model: data.model ?? model,
@@ -91,6 +121,7 @@ export class ModelGateway {
       completionTokens: usage?.completion_tokens ?? 0,
       cachedTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
       latencyMs: Date.now() - started,
+      toolCalls,
     }
   }
 }

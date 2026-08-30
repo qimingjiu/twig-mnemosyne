@@ -236,6 +236,19 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   registerBrokerRoute(app, { db: deps.db, box: deps.box })
 
+  // —— Huginn → Telegram 出站（OutreachDeliverer 的 webhook 落点；内部共享密钥守卫）——
+  app.post('/internal/outbound/telegram', async (req, reply) => {
+    const t = req.headers['x-broker-token']
+    if (typeof t !== 'string' || t !== env.BROKER_INTERNAL_TOKEN) {
+      return reply.code(403).send({ error: 'forbidden' })
+    }
+    const body = (req.body ?? {}) as { content?: string; chat_id?: number }
+    if (!body.content) return reply.code(400).send({ error: 'content required' })
+    const { outboundToTelegram } = await import('../telegram/adapter.js')
+    const result = await outboundToTelegram({ db: deps.db, botToken: env.TELEGRAM_BOT_TOKEN }, body.content, body.chat_id)
+    return result
+  })
+
   // —— 统一错误映射（消息过 PII 脱敏再出站）——
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof IdentityError) {

@@ -16,6 +16,12 @@ const EnvSchema = z.object({
   LITELLM_URL: z.string().default('http://127.0.0.1:4000'),
   LITELLM_API_KEY: z.string().default(''),
 
+  // MCP Gateway（§5）：工具执行走它；本地 dev 默认 3000
+  MCP_GATEWAY_URL: z.string().default('http://127.0.0.1:3000'),
+
+  // Telegram 适配层（留空 = 轮询关闭）
+  TELEGRAM_BOT_TOKEN: z.string().default(''),
+
   // AES-256-GCM 主钥（OAuth tokens / 危机审计 / 导入包暂存），base64 编码 32 字节
   ENCRYPTION_KEY: z.string().min(1, 'ENCRYPTION_KEY required'),
   // §4.6 确认票据 HMAC 密钥
