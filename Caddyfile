@@ -1,14 +1,37 @@
 # Caddyfile — 反代与安全头；限流职责在应用层（per client_key + per IP）与 Cloudflare 边缘
 # （§13.4：删除无效的 @rateLimited 死配置，Caddy 不假装限流）
+#
+# 主域 = Y2K Dashboard（web/app 构建产物）+ 同域 API 反代：
+#   - 静态文件来自挂载的 ./web/dist（web/app npm run build 产物）
+#   - /v1/* /metrics /health 反代 runtime（同域免 CORS；浏览器只持有 web client_key）
+# api.* = 纯 API 域（其它客户端 client 使用）
 
 mnemosyne.yourdomain.com {
-    reverse_proxy mnemosyne:8000
+    encode gzip
 
     header {
         X-Frame-Options "DENY"
         X-Content-Type-Options "nosniff"
         X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # API → runtime
+    handle /v1/* {
+        reverse_proxy mnemosyne:8000
+    }
+    handle /metrics {
+        reverse_proxy mnemosyne:8000
+    }
+    handle /health {
+        reverse_proxy mnemosyne:8000
+    }
+
+    # Dashboard 静态站（Vite MPA，无需 SPA fallback）
+    handle {
+        root * /srv/www
+        try_files {path} {path}/ /index.html
+        file_server
     }
 
     log {

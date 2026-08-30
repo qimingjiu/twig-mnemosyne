@@ -9,54 +9,8 @@
 <body>
 <div class="shell">
 
-  <!-- ══════════════ LEFT RAIL ══════════════ -->
-  <aside class="rail">
-    <div class="brand">
-      <div class="brand-mark">
-        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M17.5 3.2 A10.3 10.3 0 1 0 22.8 17.5 A8.2 8.2 0 0 1 17.5 3.2 Z" fill="#A8894A" opacity="0.9"/></svg>
-        <div>
-          <div class="brand-gk">ΜΝΗΜΟΣΥΝΗ</div>
-          <div class="brand-la">MNEMOSYNE</div>
-        </div>
-      </div>
-      <div class="brand-tag">Personal AI Runtime · your memory never dies.</div>
-    </div>
-
-    <nav class="nav">
-      <a href="index.html">
-        <span class="gk">ΧΑΡΤΗΣ</span><span class="cn">星海航图 · Dashboard</span>
-      </a>
-      <a href="book.html">
-        <span class="gk">ΒΙΒΛΟΣ</span><span class="cn">记忆书 · Memory Book</span>
-      </a>
-      <a href="explorer.html">
-        <span class="gk">ΧΑΡΤΟΓΡΑΦΟΣ</span><span class="cn">记忆制图师 · Explorer</span>
-      </a>
-      <a href="observatory.html">
-        <span class="gk">ΑΣΤΡΟΝΟΜΕΙΟΝ</span><span class="cn">观象台 · Observatory</span>
-      </a>
-      <a href="forge.html" class="active">
-        <span class="gk">ΧΑΛΚΕΙΟΝ</span><span class="cn">锻炉 · Capability Forge</span>
-      </a>
-      <a href="console.html">
-        <span class="gk">ΠΡΥΤΑΝΕΙΟΝ</span><span class="cn">控制台 · Console</span>
-      </a>
-      <a href="settings.html">
-        <span class="gk">ΡΥΘΜΙΣΕΙΣ</span><span class="cn">调律 · Settings</span>
-      </a>
-    </nav>
-
-    <div class="rail-foot">
-      <div class="user-chip">
-        <svg class="moon" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="#A8894A" stroke-width="1.2"/><path d="M14.5 4.5 A7 7 0 1 0 17.5 14.5 A5.6 5.6 0 0 1 14.5 4.5 Z" fill="#A8894A" opacity=".85"/></svg>
-        <div>
-          <div class="name">小月亮</div>
-          <div class="sub">κόραξ 在侧 · web</div>
-        </div>
-      </div>
-      <div class="rail-ver">v0.3.1-mock · twig @89a7881</div>
-    </div>
-  </aside>
+  <!-- ══════════════ LEFT RAIL（由 src/rail.js 注入） ══════════════ -->
+  <aside class="rail" data-rail></aside>
 
   <!-- ══════════════ MAIN ══════════════ -->
   <main class="main">
@@ -288,10 +242,12 @@
     </div>
 
     <div class="footer">
-      <span>ΧΑΛΚΕΙΟΝ · mockup v0.1（静态稿）</span>
+      <span>ΧΑΛΚΕΙΟΝ · 静态稿（数据未接入，规划见 docs）</span>
       <span>信任是挣来的，工具也是。</span>
     </div>
   </main>
 </div>
+
+<script type="module" src="/src/boot.js"></script>
 </body>
 </html>

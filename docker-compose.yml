@@ -181,7 +181,7 @@ services:
       - mnemosyne
     profiles: ["local-lane"]
 
-  # ─── Reverse Proxy ───
+  # ─── Reverse Proxy（主域同时托管 Y2K Dashboard 静态站 + API 反代）───
   caddy:
     image: caddy:2-alpine
     ports:
@@ -189,6 +189,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web/dist:/srv/www:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
