@@ -1,0 +1,26 @@
+# Caddyfile — 反代与安全头；限流职责在应用层（per client_key + per IP）与 Cloudflare 边缘
+# （§13.4：删除无效的 @rateLimited 死配置，Caddy 不假装限流）
+
+mnemosyne.yourdomain.com {
+    reverse_proxy mnemosyne:8000
+
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+api.mnemosyne.yourdomain.com {
+    reverse_proxy mnemosyne:8000
+}
+
+dash.mnemosyne.yourdomain.com {
+    reverse_proxy grafana:3000
+}

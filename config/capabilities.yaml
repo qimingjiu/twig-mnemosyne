@@ -1,0 +1,101 @@
+# capabilities.yaml — §4.2（VULN-01 配套修复）+ §17.2 Semantic Scholar
+# 情感层不是 AI 可调用的工具（§18.1）：情感信号经 ContextPacket.promptText 与 recentStamps
+# 自然进入上下文；日记/心迹/便签/印章属于「记忆书」前端域，不经 Capability Router。
+#
+# lanes：§10.2 单一意图决策点 —— LangGraph Router 决定泳道，本表只按泳道收敛可见能力。
+lanes:
+  chat:     [time, web, music]
+  coding:   [time, web]
+  research: [time, web, research]
+  tool:     [time, web, calendar, mail, music, research]
+
+cap_domains:
+  # §4.7 contested → capability 域映射：论断命中以下关键词时，相关域工具降级为 askUserFirst
+  contested_keywords:
+    mail: [邮箱, email, 邮件, gmail, outlook]
+    calendar: [日程, 日历, calendar, 会议, 安排]
+    music: [音乐, 歌, music, netease, 网易云]
+
+capabilities:
+  time:
+    description: "Get current time and date"
+    provider: system
+    confirmation_required: false
+    required_role: user
+    tools:
+      - name: get_current_time
+        description: "Returns current time in user's timezone"
+
+  calendar:
+    description: "Calendar management"
+    provider: google_calendar
+    confirmation_required: false
+    required_role: user
+    auth_type: oauth2
+    auth_config:
+      scopes: ["https://www.googleapis.com/auth/calendar.readonly"]
+    tools:
+      - name: list_events
+        description: "List calendar events"
+      - name: create_event
+        description: "Create a new calendar event"
+        confirmation_required: true  # override
+
+  mail:
+    description: "Email management"
+    provider: gmail
+    confirmation_required: true
+    required_role: user
+    auth_type: oauth2
+    auth_config:
+      scopes: ["https://www.googleapis.com/auth/gmail.send"]
+    tools:
+      - name: search_mail
+        description: "Search emails"
+        confirmation_required: false
+      - name: send_mail
+        description: "Send an email"
+        confirmation_required: true
+
+  web:
+    description: "Web search and browsing"
+    provider: browser
+    confirmation_required: false
+    required_role: user
+    tools:
+      - name: search
+        description: "Search the web"
+      - name: fetch
+        description: "Fetch a webpage"
+      - name: extract
+        description: "Extract content from a webpage"
+
+  music:
+    description: "Music playback"
+    provider: netease_mcp
+    confirmation_required: false
+    required_role: user
+    tools:
+      - name: search
+        description: "Search for music"
+      - name: play
+        description: "Play a song"
+
+  research:
+    description: "Academic paper search and analysis via Semantic Scholar"
+    provider: semantic_scholar
+    confirmation_required: false
+    required_role: user
+    auth_type: api_key
+    auth_config:
+      key_env: SEMANTIC_SCHOLAR_API_KEY
+      rate_limit: "1rps"
+    tools:
+      - name: search_papers
+        description: "Search academic papers by keyword, author, or topic"
+      - name: get_paper_details
+        description: "Get detailed metadata for a specific paper"
+      - name: get_author_papers
+        description: "List papers by a specific author"
+      - name: find_related_papers
+        description: "Find papers related to a given paper via citation graph"

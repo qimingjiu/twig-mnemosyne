@@ -1,0 +1,46 @@
+# tts_priority.yaml — §21.3（E-6 勘误后：云端优先，MIT 本地备选封存 D-12）
+priority_chain:
+  # 第一梯队：质量优先（云端 API）
+  - provider: elevenlabs
+    model: eleven_multilingual_v2
+    plan: free                    # Free tier: 10k chars/month，无信用卡门槛
+    cost_api: "$0.10/1K chars"
+    note: 质量天花板，情绪自然，中文支持好；Free tier 适合个人轻量场景
+
+  - provider: google
+    model: chirp3-hd
+    cost: "$30/1M chars"
+    free_tier: 1M chars/月
+    note: 质量接近 ElevenLabs，个人用量几乎免费
+
+  - provider: openai
+    model: tts-1-hd
+    cost: "$30/1M chars"
+    note: 无月费，质量稳定，情绪平淡
+
+  # 第二梯队：性价比/克隆
+  - provider: fish_audio
+    model: s2-pro
+    cost: "$15/1M chars"
+    note: 支持零样本克隆，价格最低
+
+  # 本地 MIT 备选（D-12 封存，等高质量 MIT 中文 TTS 出现）
+  - provider: melotts
+    license: MIT
+    status: deferred
+    note: 轻量基线，中文可用，当前质量不足以支撑 VTuber 场景
+
+  - provider: piper-plus
+    license: MIT
+    status: deferred
+    note: CPU 实时，20+ 语言；voice packs 需从 ayutaz/piper-plus 渠道获取
+
+  - provider: bark
+    license: MIT
+    status: deferred
+    note: 创意音频（笑声/叹息），慢，挂 profiles: ["voice-creative"]
+
+# 月度预算（§21.6）：ElevenLabs Free 10k credits/月，8k 触发 Dashboard 告警（留 2k 缓冲）
+budget:
+  monthly_chars: 10000
+  alert_chars: 8000

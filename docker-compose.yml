@@ -1,0 +1,209 @@
+# docker-compose.yml — §13.3（VULN-08 修复段 + v0.3.0 增补）
+# profiles: qdrant/monitoring/local-lane 默认不启；个人生产 2C4G 形态 = 默认服务集
+version: '3.8'
+
+services:
+  # ─── Runtime Core ───
+  mnemosyne:
+    build: ./runtime
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - DATABASE_URL=postgresql://mnemosyne:${DB_PASSWORD}@postgres:5432/mnemosyne
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - TWIG_URL=http://twig-memory:7300
+      - MUNINN_AUTH_TOKEN=${MUNINN_AUTH_TOKEN}
+      - LITELLM_URL=http://litellm:4000
+      - LITELLM_API_KEY=${LITELLM_MASTER_KEY}
+      - MCP_GATEWAY_URL=http://mcp-gateway:3000
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - BROKER_INTERNAL_TOKEN=${BROKER_INTERNAL_TOKEN}
+      - CONFIRM_SECRET=${CONFIRM_SECRET}
+      - BOOTSTRAP_TOKEN=${BOOTSTRAP_TOKEN:-}
+      - ALLOW_INSECURE_WEBHOOK=${ALLOW_INSECURE_WEBHOOK:-0}
+      - WEBHOOK_HOST_ALLOWLIST=${WEBHOOK_HOST_ALLOWLIST:-}
+      - PRIVACY_LOCAL_THRESHOLD=${PRIVACY_LOCAL_THRESHOLD:-70}
+      - CRISIS_SILENCE_HOURS=${CRISIS_SILENCE_HOURS:-24}
+      - MAX_MESSAGE_TOKENS=${MAX_MESSAGE_TOKENS:-4096}
+      # v0.3.0 新增：TTS Provider 配置
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-}
+      - GOOGLE_TTS_API_KEY=${GOOGLE_TTS_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # v0.3.0 新增：本地模型边车（形态 A 时指向 tailnet）
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://ollama:11434}
+    depends_on:
+      - postgres
+      - redis
+      - twig-memory
+      - litellm
+    volumes:
+      - ./config:/app/config:ro
+      - ./skills:/app/skills:ro
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── Model Gateway ───
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://litellm:${DB_PASSWORD}@postgres:5432/litellm
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      # 形态 A 指向 tailnet IP；形态 B 指向 ollama 服务名
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://ollama:11434}
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml"]
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── MCP Gateway（eznix86 fork；构建上下文待放入 ./mcp-gateway，见 README）───
+  mcp-gateway:
+    build: ./mcp-gateway
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./mcp_config.json:/app/config.json:ro
+      - ./skills:/app/skills:ro
+    environment:
+      - MCP_GATEWAY_CONFIG=/app/config.json
+      - BROKER_URL=http://mnemosyne:8000
+      - BROKER_INTERNAL_TOKEN=${BROKER_INTERNAL_TOKEN}
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── Narrative Engine (twig-memory) ───
+  twig-memory:
+    build: ./twig-memory
+    ports:
+      - "127.0.0.1:7300:7300"
+    environment:
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - MUNINN_AUTH_TOKEN=${MUNINN_AUTH_TOKEN}
+      - MUNINN_DATA_DIR=/data
+      - MUNINN_TZ=${MUNINN_TZ:-Asia/Shanghai}
+    volumes:
+      - twig_data:/data
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── Database ───
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: mnemosyne
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: mnemosyne
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── Cache ───
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+  # ─── Vector DB (optional) ───
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:6333:6333"
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+    profiles: ["vector-kg"]
+
+  # ─── Observability (optional) ───
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+    profiles: ["monitoring"]
+
+  # ─── Local Model Sidecar（形态 B，默认不启）───
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+    profiles: ["local-lane"]
+
+  # ─── Reverse Proxy ───
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    networks:
+      - mnemosyne
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  twig_data:
+  prometheus_data:
+  grafana_data:
+  caddy_data:
+  caddy_config:
+  ollama_data:
+
+networks:
+  mnemosyne:
+    driver: bridge

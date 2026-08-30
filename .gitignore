@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.local
+*.tsbuildinfo
+# 记忆搬家（§23）：导入包用完即焚，任何落盘产物不入库
+*.relocation-checkpoint.json
+uploads/
+# twig-memory / mcp-gateway 为外部构建上下文（见 README「外部构建上下文」）
+/twig-memory/
+/mcp-gateway/
+/skills/

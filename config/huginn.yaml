@@ -1,0 +1,16 @@
+# huginn.yaml — §19.4（v0.3.1 补丁版：事务发件箱 + 原子抢槽）
+huginn:
+  enabled: true
+  scan_interval: "*/15 * * * *"
+  outbox_worker_interval: 30        # 秒，v0.3.1 新增
+  daily_cap: 3
+  min_interval_minutes: 180
+  quiet_hours: "01:00-08:00"        # users.preferences.tz 本地时区
+  crisis_silence_hours: 24
+  generation:
+    max_chars: 280
+    temperature: 0.7
+    chain: ["gpt-4o", "claude-sonnet", "gemini-pro"]
+  outbox:
+    max_retries: 3
+    retry_backoff: [60, 300, 900]   # 秒
