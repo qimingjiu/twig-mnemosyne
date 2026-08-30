@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "core": { "type": "builtin" },
+    "ddg-search": {
+      "type": "local",
+      "command": ["npx", "-y", "@OEvortex/ddg_search"],
+      "enabled": true
+    },
+    "google-calendar": {
+      "type": "remote",
+      "url": "https://mcp-calendar.example.com/mcp",
+      "enabled": false,
+      "skill_document": "./skills/google-calendar.md"
+    },
+    "gmail": {
+      "type": "remote",
+      "url": "https://mcp-gmail.example.com/mcp",
+      "enabled": false,
+      "skill_document": "./skills/gmail.md"
+    }
+  }
+}

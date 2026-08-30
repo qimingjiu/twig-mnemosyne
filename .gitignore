@@ -8,9 +8,9 @@ coverage/
 # 记忆搬家（§23）：导入包用完即焚，任何落盘产物不入库
 *.relocation-checkpoint.json
 uploads/
-# twig-memory / mcp-gateway 为外部构建上下文（见 README「外部构建上下文」）
+# twig-memory 为外部构建上下文（muninn 上游副本，见 README「外部构建上下文」）
+# mcp-gateway/ 已并入本仓库（自有轻量实现，见 mcp-gateway/Dockerfile）
 /twig-memory/
-/mcp-gateway/
 /skills/
 
 # Zeabur 生成的本地密钥文件，不入库
