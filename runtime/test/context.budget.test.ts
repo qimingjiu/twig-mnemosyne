@@ -53,10 +53,12 @@ describe('§6.4 模型注册表（VULN-06 配套）', () => {
     expect(() => requireModel('gpt-9-turbo-ultra')).toThrow(/not registered/)
   })
 
-  it('OpenAI 兼容中转三家已登记（2026-08-30 接入）', () => {
-    expect(lookupModel('gemini-3.1-flash-lite')).toMatchObject({ lane: 'cloud', provider: 'commandcode' })
+  it('OpenAI 兼容中转模型已登记（2026-08-30 接入）', () => {
+    expect(lookupModel('gemini-3.7-flash')).toMatchObject({ lane: 'cloud', provider: 'commandcode' })
     expect(lookupModel('kimi-k3')).toMatchObject({ lane: 'cloud', provider: 'opencode' })
+    expect(lookupModel('gpt-5.6-luna')).toMatchObject({ lane: 'cloud', provider: 'opencode' })
     expect(lookupModel('glm-5.2')).toMatchObject({ lane: 'cloud', provider: 'siliconflow' })
+    expect(lookupModel('gemini-3.1-flash-lite')).toBeUndefined() // 套餐不含，已下架
   })
 })
 
