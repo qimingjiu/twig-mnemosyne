@@ -52,6 +52,12 @@ describe('§6.4 模型注册表（VULN-06 配套）', () => {
     expect(lookupModel('gpt-9-turbo-ultra')).toBeUndefined()
     expect(() => requireModel('gpt-9-turbo-ultra')).toThrow(/not registered/)
   })
+
+  it('OpenAI 兼容中转三家已登记（2026-08-30 接入）', () => {
+    expect(lookupModel('gemini-3.1-flash-lite')).toMatchObject({ lane: 'cloud', provider: 'commandcode' })
+    expect(lookupModel('kimi-k3')).toMatchObject({ lane: 'cloud', provider: 'opencode' })
+    expect(lookupModel('glm-5.2')).toMatchObject({ lane: 'cloud', provider: 'siliconflow' })
+  })
 })
 
 describe('§4.2 Capability 注入与预算压缩', () => {

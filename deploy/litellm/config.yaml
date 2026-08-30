@@ -30,6 +30,29 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
       rpm: 360
 
+  # ── OpenAI 兼容中转（同一把 key 可挂多个模型条目）──
+
+  # CommandCode 中转 · Gemini 3.1 Flash Lite
+  - model_name: gemini-3.1-flash-lite
+    litellm_params:
+      model: openai/google/gemini-3.1-flash-lite
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  # OpenCode Zen · Kimi K3
+  - model_name: kimi-k3
+    litellm_params:
+      model: openai/kimi-k3
+      api_base: https://opencode.ai/zen/go/v1
+      api_key: os.environ/OPENCODE_API_KEY
+
+  # 硅基流动 · GLM-5.2
+  - model_name: glm-5.2
+    litellm_params:
+      model: openai/zai-org/GLM-5.2
+      api_base: https://api.siliconflow.cn/v1
+      api_key: os.environ/SILICONFLOW_API_KEY
+
   # FEATURE-02 本地 lane（§20 形态 A）：OLLAMA_API_BASE 指向 tailnet IP
   - model_name: ollama/qwen3:8b
     litellm_params:
