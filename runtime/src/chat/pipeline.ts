@@ -19,7 +19,7 @@ import { buildCacheKey, narrativeVersionOf } from '../cache/keys.js'
 import { exactGet, exactSet } from '../cache/exact.js'
 import { contextCacheKey, contextGet, contextSet } from '../cache/contextCache.js'
 import { shouldCache } from '../cache/policy.js'
-import { isRetryableError, type ChatResult } from '../gateways/litellm.js'
+import { isRetryableError, LiteLlmError, type ChatResult } from '../gateways/litellm.js'
 import { classifyLane } from '../router/lanes.js'
 import { privacyScore } from '../privacy/score.js'
 import { recordUsage } from '../usage/engine.js'
@@ -224,7 +224,12 @@ interface LoopState {
   privacyLane: 'cloud' | 'local'
 }
 
-/** §3.8 每个候选独立装配（重装配），retryable 错误沿链降级；非 retryable 直接映射。 */
+/** 上游 401/403 = 该 provider 未配置凭证/失效：沿链跳过，不中断整条 fallback。 */
+function isProviderMisconfig(e: unknown): boolean {
+  return e instanceof LiteLlmError && (e.status === 401 || e.status === 403)
+}
+
+/** §3.8 每个候选独立装配（重装配），retryable/凭证缺失错误沿链降级；其余非 retryable 直接映射。 */
 async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Promise<ChatOutcome> {
   let result: ChatResult | null = null
   let usedModel = ''
@@ -264,7 +269,7 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
       break
     } catch (e) {
       lastError = e
-      if (!isRetryableError(e)) throw mapGatewayError(e)
+      if (!isRetryableError(e) && !isProviderMisconfig(e)) throw mapGatewayError(e)
       st.fallbackCount++
     }
   }
@@ -274,6 +279,9 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
     if (st.privacyLane === 'local') {
       // fail-closed：本地不可用 → 503，绝不允许「降级」到云端（T10.1）
       throw new IdentityError(503, 'privacy_unavailable', 'local model offline; refusing cloud fallback')
+    }
+    if (isProviderMisconfig(lastError)) {
+      throw new IdentityError(502, 'provider_misconfigured', 'all chain models rejected provider credentials; check provider keys')
     }
     throw new IdentityError(502, 'all_providers_down', lastError instanceof Error ? lastError.message : 'all providers failed')
   }
