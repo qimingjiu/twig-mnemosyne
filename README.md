@@ -18,6 +18,8 @@
 │   ├── huginn.yaml           §19.4 触达引擎配置（v0.3.1 补丁版）
 │   └── tts_priority.yaml     §21.3 TTS 云端优先链（E-6 勘误后）
 ├── docs/                     设计文档 v0.3.0 + v0.3.1 补丁 + 恢复手册
+├── web/                      Y2K Dashboard（app/ = Vite MPA；mockups/ = 静态设计稿存档）
+│   └── app/src/pages/        index/book/explorer 已接 /v1/web/* BFF，其余页静态稿
 ├── scripts/backup.sh         §13.6 每日备份（cron 04:30）
 └── runtime/                  TypeScript 运行时（本仓库主体）
     ├── migrations/           001_identity / 002_content / 003_outreach（启动时自动迁移）
@@ -99,7 +101,7 @@ bootstrap 输出 `eternal_id` 与唯一的 `client_key`（明文只出现这一�
 | 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；exact/context 两层已覆盖 |
 | 流式响应 | http/routes | 返回 501 |
 | DNS rebinding 钉扎 | identity/webhookGuard | 投递前重解析近似；严格版需 undici Dispatcher 钉 IP |
-| Y2K Dashboard | — | 记忆书前端由用户独立开发（web/ 原型）；/metrics 与 /v1/admin/* 已就绪 |
+| Y2K Dashboard | http/webRoutes | **已接第一层**：`/v1/web/*` BFF（master_key 登录 / twig 只读代理 / 用量聚合 / 铭文流）+ `web/app`（index/book/explorer 实时，其余页静态稿）；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续 |
 | OTel → Collector | observability | prom-client 直采（务实 v0） |
 | Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
 | vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似 |

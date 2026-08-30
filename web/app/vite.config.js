@@ -19,6 +19,9 @@ export default defineConfig({
     },
   },
   build: {
+    // 产物落在 web/dist（docker-compose caddy 挂载 ./web/dist:/srv/www）
+    outDir: '../dist',
+    emptyOutDir: true,
     rollupOptions: {
       input: {
         index: page('index'),
