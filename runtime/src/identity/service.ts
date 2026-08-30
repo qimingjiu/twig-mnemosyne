@@ -245,10 +245,10 @@ function isUniqueViolation(e: unknown): boolean {
   return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === '23505'
 }
 
-/** 轮换：旧 key 立即失效（key_hash 覆盖）。 */
+/** 轮换：旧 key 立即失效（key_hash 覆盖）。clients 表无 updated_at 列（§2.2.2 schema 如此）。 */
 export async function rotateClientKey(db: Db, client: ClientRow): Promise<string> {
   const clientKey = generateClientKey()
-  await db.query('UPDATE clients SET key_hash = $1, updated_at = NOW() WHERE id = $2', [
+  await db.query('UPDATE clients SET key_hash = $1 WHERE id = $2', [
     sha256Hex(clientKey),
     client.id,
   ])
