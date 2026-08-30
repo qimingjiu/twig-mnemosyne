@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΧΑΛΚΕΙΟΝ · 锻炉 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL ══════════════ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M17.5 3.2 A10.3 10.3 0 1 0 22.8 17.5 A8.2 8.2 0 0 1 17.5 3.2 Z" fill="#A8894A" opacity="0.9"/></svg>
+        <div>
+          <div class="brand-gk">ΜΝΗΜΟΣΥΝΗ</div>
+          <div class="brand-la">MNEMOSYNE</div>
+        </div>
+      </div>
+      <div class="brand-tag">Personal AI Runtime · your memory never dies.</div>
+    </div>
+
+    <nav class="nav">
+      <a href="index.html">
+        <span class="gk">ΧΑΡΤΗΣ</span><span class="cn">星海航图 · Dashboard</span>
+      </a>
+      <a href="book.html">
+        <span class="gk">ΒΙΒΛΟΣ</span><span class="cn">记忆书 · Memory Book</span>
+      </a>
+      <a href="explorer.html">
+        <span class="gk">ΧΑΡΤΟΓΡΑΦΟΣ</span><span class="cn">记忆制图师 · Explorer</span>
+      </a>
+      <a href="observatory.html">
+        <span class="gk">ΑΣΤΡΟΝΟΜΕΙΟΝ</span><span class="cn">观象台 · Observatory</span>
+      </a>
+      <a href="forge.html" class="active">
+        <span class="gk">ΧΑΛΚΕΙΟΝ</span><span class="cn">锻炉 · Capability Forge</span>
+      </a>
+      <a href="console.html">
+        <span class="gk">ΠΡΥΤΑΝΕΙΟΝ</span><span class="cn">控制台 · Console</span>
+      </a>
+      <a href="settings.html">
+        <span class="gk">ΡΥΘΜΙΣΕΙΣ</span><span class="cn">调律 · Settings</span>
+      </a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="user-chip">
+        <svg class="moon" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="#A8894A" stroke-width="1.2"/><path d="M14.5 4.5 A7 7 0 1 0 17.5 14.5 A5.6 5.6 0 0 1 14.5 4.5 Z" fill="#A8894A" opacity=".85"/></svg>
+        <div>
+          <div class="name">小月亮</div>
+          <div class="sub">κόραξ 在侧 · web</div>
+        </div>
+      </div>
+      <div class="rail-ver">v0.3.1-mock · twig @89a7881</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΧΑΛΚΕΙΟΝ</div>
+        <div class="cn">锻炉</div>
+        <div class="sub">capabilities.yaml · MCP gateway · Skill Forge —— 工具与技能在这里登记、淬火、候审</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--gold)"></span>工具执行回路 · 待 mcp-gateway fork</div>
+        <div class="widget"><span class="dot" style="background:var(--olive)"></span>注册表 6 域 · 14 工具</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- ══════════ ΜΗΤΡΩΟΝ · 能力注册表（§4.2） ══════════ -->
+    <div class="sec" style="margin-top:0;">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΜΗΤΡΩΟΝ</div><div class="cn">能力注册表 · Capability Registry</div></div>
+        <div class="sec-note">§4.2 · 技能绑定 capability 抽象层而非 provider —— 换 provider 不失效（§22.3 设计红利）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="card card-pad">
+        <table class="tbl">
+          <thead><tr><th>capability</th><th>provider</th><th>tools</th><th>确认票</th><th>auth</th><th>域级确认</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b style="color:var(--ink)">time</b></td><td class="mono">system</td>
+              <td class="mono">get_current_time</td>
+              <td><span class="badge b-ghost">无</span></td><td class="mono dim">—</td>
+              <td><span class="badge b-ok">免确认</span></td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--ink)">web</b></td><td class="mono">browser</td>
+              <td class="mono">search · fetch · extract</td>
+              <td><span class="badge b-ghost">无</span></td><td class="mono dim">—</td>
+              <td><span class="badge b-ok">免确认</span></td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--ink)">calendar</b></td><td class="mono">google_calendar</td>
+              <td class="mono">list_events · <span style="color:var(--terra)">create_event ✱</span></td>
+              <td><span class="badge b-warn">create_event 需确认</span></td>
+              <td class="mono">oauth2 · readonly scope</td>
+              <td><span class="badge b-ok">免确认</span></td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--ink)">mail</b></td><td class="mono">gmail</td>
+              <td class="mono">search_mail · <span style="color:var(--terra)">send_mail ✱</span></td>
+              <td><span class="badge b-warn">send_mail 需确认</span></td>
+              <td class="mono">oauth2 · gmail.send</td>
+              <td><span class="badge b-warn">域级需确认</span></td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--ink)">music</b></td><td class="mono">netease_mcp</td>
+              <td class="mono">search · play</td>
+              <td><span class="badge b-ghost">无</span></td><td class="mono dim">—</td>
+              <td><span class="badge b-ok">免确认</span></td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--ink)">research</b></td><td class="mono">semantic_scholar</td>
+              <td class="mono">search_papers · get_paper_details · get_author_papers · find_related_papers</td>
+              <td><span class="badge b-ghost">无</span></td>
+              <td class="mono">api_key · 1rps</td>
+              <td><span class="badge b-ok">免确认</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stat-sub mt8">✱ = 工具级 override。确认票：HMAC · 绑定 session + 参数哈希 · 5 分钟一次性（§4.6，T8.9 防伪造）。</div>
+      </div>
+
+      <!-- 泳道白名单 + contested 域映射 -->
+      <div class="grid g-2 mt14">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">泳道白名单 · lanes × capabilities</b>
+            <span class="sec-note">§10.2 · Router 定泳道，白名单收敛可见能力</span>
+          </div>
+          <table class="tbl matrix mt8">
+            <thead><tr><th>lane</th><th>time</th><th>web</th><th>calendar</th><th>mail</th><th>music</th><th>research</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">chat</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td><td class="yes">●</td><td class="no">○</td></tr>
+              <tr><td class="mono">coding</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td><td class="no">○</td><td class="no">○</td></tr>
+              <tr><td class="mono">research</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td><td class="no">○</td><td class="yes">●</td></tr>
+              <tr><td class="mono">tool</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr>
+            </tbody>
+          </table>
+          <div class="stat-sub mt8">local lane（隐私分层）不暴露任何工具 schema，降级纯对话（§20.6）。</div>
+        </div>
+
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">contested 域映射 · §4.7</b>
+            <span class="badge b-err" style="font-size:9.5px;">当前 1 条论断生效中</span>
+          </div>
+          <table class="tbl mt8">
+            <thead><tr><th>域</th><th>关键词</th><th>命中后果</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">mail</td><td class="mono dim">邮箱 · email · 邮件 · gmail · outlook</td><td><span class="badge b-warn">askUserFirst</span></td></tr>
+              <tr><td class="mono">calendar</td><td class="mono dim">日程 · 日历 · calendar · 会议 · 安排</td><td><span class="badge b-warn">askUserFirst</span></td></tr>
+              <tr><td class="mono">music</td><td class="mono dim">音乐 · music · netease · 网易云</td><td><span class="badge b-warn">askUserFirst</span></td></tr>
+            </tbody>
+          </table>
+          <div class="feed mt8" style="background:var(--terra-soft);border:1px solid var(--hairline);border-radius:6px;padding:10px 12px;">
+            <div class="feed-row"><span class="feed-tag">live</span><span class="feed-body">「体检报告」论断 contested → <b>calendar</b> 域（复查预约）当前降级 askUserFirst</span></div>
+          </div>
+          <div class="stat-sub mt8">用户否决过的行为，技能也不能复活——蒸馏产物执行前仍过同一检查（§22.2）。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΔΙΑΥΛΟΣ · MCP 网关（§5 / §16 / §17） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΔΙΑΥΛΟΣ</div><div class="cn">MCP 网关与外部资源</div></div>
+        <div class="sec-note">§5 · lazy loading / 动态注册 / skill documents / broker 取件 —— eznix86 fork 待放置构建上下文</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-3">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">netease_mcp</b>
+            <span class="badge b-ok">connected</span>
+          </div>
+          <div class="kv mt8"><span class="k">来源</span><span class="v">本地 · stdio</span></div>
+          <div class="kv"><span class="k">暴露能力</span><span class="v">music</span></div>
+          <div class="kv"><span class="k">lazy loading</span><span class="v">首次调用拉起</span></div>
+          <div class="kv"><span class="k">今日调用</span><span class="v">17 · err 0</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">smithery.ai registry</b>
+            <span class="badge b-warn">discover only</span>
+          </div>
+          <div class="kv mt8"><span class="k">来源</span><span class="v">远程 · §16 结构化 API</span></div>
+          <div class="kv"><span class="k">策略</span><span class="v">不抓取 · 走官方 API</span></div>
+          <div class="kv"><span class="k">已注册 server</span><span class="v">1</span></div>
+          <div class="kv"><span class="k">候选队列</span><span class="v">4 待审批</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">Token Broker 取件</b>
+            <span class="badge b-ok">armed</span>
+          </div>
+          <div class="kv mt8"><span class="k">模式</span><span class="v">§5.3 · 内部短票</span></div>
+          <div class="kv"><span class="k">存储</span><span class="v">AES-256 · Postgres</span></div>
+          <div class="kv"><span class="k">审计</span><span class="v">每次取件落账</span></div>
+          <div class="kv"><span class="k">今日取件</span><span class="v">23</span></div>
+        </div>
+      </div>
+
+      <div class="card card-pad mt14">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">外部资源 · §17</b>
+          <span class="sec-note">集成状态一览</span>
+        </div>
+        <table class="tbl mt8">
+          <thead><tr><th>资源</th><th>用途</th><th>凭证</th><th>限速</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Semantic Scholar</td><td>论文检索 · research 域</td>
+              <td class="mono">SEMANTIC_SCHOLAR_API_KEY <span class="badge b-ok" style="font-size:9px;">set</span></td>
+              <td class="mono">1 rps</td><td><span class="badge b-ok">healthy</span></td>
+            </tr>
+            <tr>
+              <td>Project Gutenberg</td><td>公版书全文 · research 域兜底</td>
+              <td class="mono dim">无</td><td class="mono">礼貌限速</td><td><span class="badge b-ok">healthy</span></td>
+            </tr>
+            <tr>
+              <td>OpenAlex</td><td>引用图谱 · 候选</td>
+              <td class="mono dim">mailto 礼貌池</td><td class="mono dim">—</td><td><span class="badge b-ghost">未启用</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ ΣΦΥΡΗΛΑΣΙΑ · Skill Forge（§22） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΣΦΥΡΗΛΑΣΙΑ</div><div class="cn">技能沉淀 · Skill Forge</div></div>
+        <div class="sec-note">§22 · 依赖工具回路 + AgentTrace —— <span style="color:var(--terra)">当前未实现，队列为此预留</span></div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-38">
+        <div class="card card-pad">
+          <div class="stat-label">蒸馏触发条件 · §22.2</div>
+          <div class="feed mt8">
+            <div class="feed-row"><span class="feed-tag">signature</span><span class="feed-body">同一意图签名（lane + capability + 工具序列骨架）</span></div>
+            <div class="feed-row"><span class="feed-tag">success</span><span class="feed-body">成功 ≥ 3 次 · 期间无 fallback</span></div>
+            <div class="feed-row"><span class="feed-tag">clean</span><span class="feed-body">无确认票作废（§4.6）· 无 contested 拦截（§4.7）</span></div>
+            <div class="feed-row"><span class="feed-tag">abstract</span><span class="feed-body">abstractParameters：具体值 → 占位符，PII 扫描命中即打回</span></div>
+            <div class="feed-row"><span class="feed-tag">mount</span><span class="feed-body">./skills 保持 <b>:ro</b> 挂载 —— Forge 不直接写盘，注册走 §4.4 管理 API</span></div>
+          </div>
+          <div class="kv mt14"><span class="k">每日 draft 上限</span><span class="v">5（防审批疲劳）</span></div>
+          <div class="kv"><span class="k">今日已蒸馏</span><span class="v">0 / 5</span></div>
+        </div>
+
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">draft 审批队列</b>
+            <span class="badge b-ghost">空 · 通道复用 §16.3</span>
+          </div>
+          <div style="text-align:center;padding:34px 20px 28px;">
+            <svg width="52" height="52" viewBox="0 0 52 52" style="opacity:.5"><path d="M30 6 L40 16 L20 38 L8 42 L12 30 Z" fill="none" stroke="#A8894A" stroke-width="1.6" stroke-linejoin="round"/><path d="M27 12 L36 21" stroke="#A8894A" stroke-width="1.6"/></svg>
+            <div style="font:600 13px var(--f-serif);color:var(--ink);margin-top:10px;">还没有锻出待审的坯</div>
+            <div class="stat-sub" style="margin-top:5px;">工具回路接通后，成功三次以上的意图序列会在这里凝成 draft，<br>带 diff 视图候审——批准才注册，打回不留残渣。</div>
+          </div>
+          <!-- 示意：队列为空时的占位。有 draft 时每行：签名 / 参数占位 diff / PII 扫描 / 批准·打回 -->
+          <table class="tbl mt8" style="opacity:.45;">
+            <thead><tr><th>意图签名（示例形态）</th><th>PII 扫描</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono">research · search_papers → get_paper_details</td>
+                <td><span class="badge b-ok">clean</span></td>
+                <td style="white-space:nowrap;">
+                  <button class="btn" style="padding:5px 10px;font-size:11px;" disabled>批准注册</button>
+                  <button class="btn btn-terra" style="padding:5px 10px;font-size:11px;" disabled>打回</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΧΑΛΚΕΙΟΝ · mockup v0.1（静态稿）</span>
+      <span>信任是挣来的，工具也是。</span>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -287,6 +287,11 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
 function mapGatewayError(e: unknown): IdentityError {
   if (e instanceof IdentityError) return e
   const status = typeof e === 'object' && e !== null && 'status' in e ? Number((e as { status: unknown }).status) : NaN
+  // 上游 401/403 = 服务端 provider 凭证未配置/失效，映射 502 而非透传 401——
+  // 否则用户会误判为自己的 client_key 出错（两者必须可区分）
+  if (status === 401 || status === 403) {
+    return new IdentityError(502, 'provider_misconfigured', 'model gateway rejected provider credentials; check provider keys')
+  }
   if (!Number.isNaN(status)) return new IdentityError(status >= 400 && status < 600 ? status : 502, 'gateway_error', String(e))
   return new IdentityError(502, 'gateway_error', String(e))
 }

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΧΑΡΤΟΓΡΑΦΟΣ · 记忆制图师 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL ══════════════ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M17.5 3.2 A10.3 10.3 0 1 0 22.8 17.5 A8.2 8.2 0 0 1 17.5 3.2 Z" fill="#A8894A" opacity="0.9"/></svg>
+        <div>
+          <div class="brand-gk">ΜΝΗΜΟΣΥΝΗ</div>
+          <div class="brand-la">MNEMOSYNE</div>
+        </div>
+      </div>
+      <div class="brand-tag">Personal AI Runtime · your memory never dies.</div>
+    </div>
+
+    <nav class="nav">
+      <a href="index.html">
+        <span class="gk">ΧΑΡΤΗΣ</span><span class="cn">星海航图 · Dashboard</span>
+      </a>
+      <a href="book.html">
+        <span class="gk">ΒΙΒΛΟΣ</span><span class="cn">记忆书 · Memory Book</span>
+      </a>
+      <a href="explorer.html" class="active">
+        <span class="gk">ΧΑΡΤΟΓΡΑΦΟΣ</span><span class="cn">记忆制图师 · Explorer</span>
+      </a>
+      <a href="observatory.html">
+        <span class="gk">ΑΣΤΡΟΝΟΜΕΙΟΝ</span><span class="cn">观象台 · Observatory</span>
+      </a>
+      <a href="forge.html">
+        <span class="gk">ΧΑΛΚΕΙΟΝ</span><span class="cn">锻炉 · Capability Forge</span>
+      </a>
+      <a href="console.html">
+        <span class="gk">ΠΡΥΤΑΝΕΙΟΝ</span><span class="cn">控制台 · Console</span>
+      </a>
+      <a href="settings.html">
+        <span class="gk">ΡΥΘΜΙΣΕΙΣ</span><span class="cn">调律 · Settings</span>
+      </a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="user-chip">
+        <svg class="moon" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="#A8894A" stroke-width="1.2"/><path d="M14.5 4.5 A7 7 0 1 0 17.5 14.5 A5.6 5.6 0 0 1 14.5 4.5 Z" fill="#A8894A" opacity=".85"/></svg>
+        <div>
+          <div class="name">小月亮</div>
+          <div class="sub">κόραξ 在侧 · web</div>
+        </div>
+      </div>
+      <div class="rail-ver">v0.3.1-mock · twig @89a7881</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΧΑΡΤΟΓΡΑΦΟΣ</div>
+        <div class="cn">记忆制图师 · 脑的解剖台</div>
+        <div class="sub">twig-memory 认知层剖面 —— 记忆书是「心」，这里是「脑」：引擎如何组织她对你的记忆</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--aegean)"></span>narrativeVersion nv=47</div>
+        <div class="widget"><span class="dot" style="background:var(--olive)"></span>上次 reflect · 6h ago</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- 水位 -->
+    <div class="grid g-4" style="margin-top:0;">
+      <div class="card card-pad">
+        <div class="stat-label">碎片层 · fragments</div>
+        <div class="stat-value">12,847</div>
+        <div class="stat-sub">用户原文 · 4000 字符/chunk · E-4 只收原话</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">线索层 · threads open</div>
+        <div class="stat-value">9</div>
+        <div class="stat-sub">2 条 dragonVein 高位 · 1 条 daysOpen ≥ 3</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">认识层 · claims</div>
+        <div class="stat-value">23 <small>active</small></div>
+        <div class="stat-sub"><span style="color:var(--terra)">2 contested</span> · 1 window 观察期 · 1 remention 邀请</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">漂移标记 · drift</div>
+        <div class="stat-value">0 <small>active</small></div>
+        <div class="stat-sub">最近盲推导审计：今晨 04:12 · 3 项已收口</div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΑΝΑΤΟΜΗ · 剖面 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΑΝΑΤΟΜΗ</div><div class="cn">剖面 · 三层组织</div></div>
+        <div class="sec-note">点击左侧剖面的层位，右侧展开该层的实时内容（§8）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="anat">
+        <!-- 剖面图 -->
+        <div class="card card-pad anat-map">
+          <svg viewBox="0 0 260 300">
+            <!-- 认识层（顶） -->
+            <g class="anat-layer" data-layer="claims" opacity="0.55" id="lyClaims">
+              <path d="M40 78 Q130 18 220 78 Q232 96 224 112 Q130 88 36 112 Q28 96 40 78 Z" fill="#F0E8D5" stroke="#A8894A" stroke-width="1"/>
+              <text x="130" y="76" text-anchor="middle" font-family="Cormorant Garamond" font-size="11" letter-spacing="2" fill="#8C6F38">ΓΝΩΣΙΣ</text>
+              <text x="130" y="92" text-anchor="middle" font-size="10" fill="#3A4653">认识层 · claims</text>
+            </g>
+            <!-- 线索层（中） -->
+            <g class="anat-layer" data-layer="threads" opacity="0.55" id="lyThreads">
+              <path d="M36 118 Q130 94 224 118 Q236 150 224 182 Q130 162 36 182 Q24 150 36 118 Z" fill="#E3EDF2" stroke="#1E5A7A" stroke-width="1"/>
+              <text x="130" y="140" text-anchor="middle" font-family="Cormorant Garamond" font-size="11" letter-spacing="2" fill="#14405C">ΝΗΜΑ</text>
+              <text x="130" y="156" text-anchor="middle" font-size="10" fill="#3A4653">线索层 · threads</text>
+            </g>
+            <!-- 碎片层（底） -->
+            <g class="anat-layer" data-layer="fragments" opacity="0.55" id="lyFragments">
+              <path d="M36 188 Q130 168 224 188 Q240 232 218 262 Q130 284 42 262 Q20 232 36 188 Z" fill="#E7ECDF" stroke="#6B7F59" stroke-width="1"/>
+              <text x="130" y="222" text-anchor="middle" font-family="Cormorant Garamond" font-size="11" letter-spacing="2" fill="#55693F">ΘΡΑΥΣΜΑ</text>
+              <text x="130" y="238" text-anchor="middle" font-size="10" fill="#3A4653">碎片层 · fragments</text>
+            </g>
+            <!-- 龙脉 -->
+            <path d="M128 262 Q142 210 128 160 Q116 120 132 76" fill="none" stroke="#C1663E" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.8"/>
+            <text x="152" y="172" font-size="9" fill="#A34E2C" font-family="JetBrains Mono">dragonVein</text>
+          </svg>
+          <div class="stat-sub" style="text-align:center;">碎片反刍成线索，线索结晶为认识；龙脉是贯穿三层的长线张力。</div>
+        </div>
+
+        <!-- 层位详情 -->
+        <div class="card card-pad anat-detail">
+
+          <div id="panel-claims" class="layer-panel">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <b style="font:600 14px var(--f-serif);color:var(--ink)">认识层 · claims</b>
+              <span class="sec-note">GET /v1/claims · 渲染 promptText 只用 active</span>
+            </div>
+            <table class="tbl mt8">
+              <thead><tr><th>论断</th><th style="width:150px;">conviction</th><th>boundary</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>她更喜欢把决定想清楚了再说出口</td>
+                  <td><div class="conv"><div class="bar"><i class="aegean" style="width:86%"></i></div><span class="v">0.86</span></div></td>
+                  <td class="mono dim">不替她下结论</td>
+                  <td><span class="badge b-ok">active</span></td>
+                </tr>
+                <tr>
+                  <td>夜跑是她的情绪调节方式</td>
+                  <td><div class="conv"><div class="bar"><i class="aegean" style="width:74%"></i></div><span class="v">0.74</span></div></td>
+                  <td class="mono dim">不建议替代方案</td>
+                  <td><span class="badge b-ok">active</span></td>
+                </tr>
+                <tr>
+                  <td>她对体检报告的数字过度焦虑</td>
+                  <td><div class="conv"><div class="bar"><i class="gold" style="width:52%"></i></div><span class="v">0.52</span></div></td>
+                  <td class="mono dim">用户已否决</td>
+                  <td><span class="badge b-err">contested</span></td>
+                </tr>
+                <tr>
+                  <td>想读的书单里有《奥德赛》</td>
+                  <td><div class="conv"><div class="bar"><i class="gold" style="width:61%"></i></div><span class="v">0.61</span></div></td>
+                  <td class="mono dim">—</td>
+                  <td><span class="badge b-warn">remention ✉</span></td>
+                </tr>
+                <tr>
+                  <td>换工作是为了离海更近</td>
+                  <td><div class="conv"><div class="bar"><i class="gold" style="width:48%"></i></div><span class="v">0.48</span></div></td>
+                  <td class="mono dim">窗口观察期 · 14d</td>
+                  <td><span class="badge b-info">window</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="stat-sub mt8">contested 论断不进 promptText，相关工具域降级 askUserFirst（§4.7）；remention 邀请 30 天后失效。</div>
+          </div>
+
+          <div id="panel-threads" class="layer-panel hidden">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <b style="font:600 14px var(--f-serif);color:var(--ink)">线索层 · threads</b>
+              <span class="sec-note">dragonVein 高位 + daysOpen ≥ 3 ⇒ vein-nudge 候选（§19.2）</span>
+            </div>
+            <div class="mt8">
+              <div class="thread-row">
+                <div class="thread-name"><div class="t">换工作决定</div><div class="s">开放问题：「离海更近」是理由还是诗？</div></div>
+                <div class="vein"><div class="kv" style="border:none;padding:0;"><span class="k mono" style="font-size:9.5px;">vein 0.91 · 12d</span></div><div class="bar"><i class="terra" style="width:91%"></i></div></div>
+                <span class="badge b-err">vein 高位</span>
+              </div>
+              <div class="thread-row">
+                <div class="thread-name"><div class="t">学希腊语</div><div class="s">开放问题：先攻阅读还是开口？</div></div>
+                <div class="vein"><div class="kv" style="border:none;padding:0;"><span class="k mono" style="font-size:9.5px;">vein 0.44 · 30d</span></div><div class="bar"><i class="aegean" style="width:44%"></i></div></div>
+                <span class="badge b-ghost">pool: general</span>
+              </div>
+              <div class="thread-row">
+                <div class="thread-name"><div class="t">体检报告</div><div class="s">开放问题：复查约在什么时候？</div></div>
+                <div class="vein"><div class="kv" style="border:none;padding:0;"><span class="k mono" style="font-size:9.5px;">vein 0.62 · 5d</span></div><div class="bar"><i class="gold" style="width:62%"></i></div></div>
+                <span class="badge b-warn">remention 冷却中</span>
+              </div>
+              <div class="thread-row">
+                <div class="thread-name"><div class="t">给母亲的电话</div><div class="s">开放问题：每周几打最不被打断？</div></div>
+                <div class="vein"><div class="kv" style="border:none;padding:0;"><span class="k mono" style="font-size:9.5px;">vein 0.28 · 41d</span></div><div class="bar"><i class="aegean" style="width:28%"></i></div></div>
+                <span class="badge b-ghost">pool: general</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-fragments" class="layer-panel hidden">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <b style="font:600 14px var(--f-serif);color:var(--ink)">碎片层 · fragments</b>
+              <span class="sec-note">用户原文 · ingest ≤4000 字符/chunk · per-user 限速 429</span>
+            </div>
+            <table class="tbl mt8">
+              <thead><tr><th>时间</th><th>原文摘录</th><th>tags</th><th>来源</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">08:02</td><td>「昨晚跑到第七公里的时候，风把海吹到我脸上了」</td><td class="mono">night-run, sea</td><td><span class="badge b-info">chat</span></td></tr>
+                <tr><td class="mono">昨 22:41</td><td>「Offer 的数字好看了，可我一直在想那个窗朝西的房间」</td><td class="mono">job-decision</td><td><span class="badge b-info">chat</span></td></tr>
+                <tr><td class="mono">昨 18:20</td><td>「γλῶσσα 这个词的舌头形状真诚实」</td><td class="mono">greek, lang</td><td><span class="badge b-info">chat</span></td></tr>
+                <tr><td class="mono">3 天前</td><td>「……（2023 年 11 月的旧对话，关于搬家的第一次提及）」</td><td class="mono">imported, chatgpt, batch:07</td><td><span class="badge b-warn">import</span></td></tr>
+              </tbody>
+            </table>
+            <div class="stat-sub mt8">导入碎片带 batch:&lt;id&gt; 标记，可整体追溯、整体 contest（§23.3）。碰撞判定在 reflect 时发生，不在摄入时。</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΕΛΕΓΧΟΣ · 盲推导审计 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΕΛΕΓΧΟΣ</div><div class="cn">审计 · 盲推导与漂移</div></div>
+        <div class="sec-note">GET /v1/audit/last · reflect cron 每活跃用户 24h · 自指漂移的兜底防线</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-83">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">最近一次盲推导审计</b>
+            <span class="sec-note">2026-08-30 04:12 · 抽 12 条论断盲推比对</span>
+          </div>
+          <table class="tbl mt8">
+            <thead><tr><th>claim</th><th>盲推结论</th><th>判定</th><th>处置</th></tr></thead>
+            <tbody>
+              <tr><td>她更喜欢把决定想清楚了再说出口</td><td class="mono dim">与原文证据一致</td><td><span class="badge b-ok">pass</span></td><td class="mono dim">—</td></tr>
+              <tr><td>她对体检报告的数字过度焦虑</td><td class="mono dim">证据锚定不足 · 「过度」无原文支撑</td><td><span class="badge b-err">drift</span></td><td class="mono">conviction 0.71→0.52 · 已浮出 promptText 警示</td></tr>
+              <tr><td>学希腊语是为了读原版《奥德赛》</td><td class="mono dim">动机为推断，原文未明示</td><td><span class="badge b-warn">watch</span></td><td class="mono">标记 · 待独立证据</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">漂移标记 · 时间线</b>
+          <div class="feed mt8">
+            <div class="feed-row"><span class="feed-ts">08-30 04:12</span><span class="feed-tag">audit.drift</span><span class="feed-body">「过度焦虑」conviction 降级 0.71→0.52</span></div>
+            <div class="feed-row"><span class="feed-ts">08-26 04:09</span><span class="feed-tag">audit.pass</span><span class="feed-body"><span class="ok">✓</span> 12 条全过 · 无漂移</span></div>
+            <div class="feed-row"><span class="feed-ts">08-19 04:15</span><span class="feed-tag">audit.drift</span><span class="feed-body"><span class="warn">⚠</span> 自指漂移 1 条：AI 措辞渗入 claim · 已回滚版本</span></div>
+            <div class="feed-row"><span class="feed-ts">08-19 04:15</span><span class="feed-tag">e4.guard</span><span class="feed-body">根因：该 claim 证据锚指向 AI 回复 —— E-4 复检通过</span></div>
+          </div>
+          <div class="stat-sub mt8">漂移警示经 promptText 自然浮出，不做弹窗——她有权知道引擎怀疑了自己。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΜΕΤΟΙΚΙΣΙΣ · 记忆搬家（§23） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΜΕΤΟΙΚΙΣΙΣ</div><div class="cn">记忆搬家 · Relocation Pipeline</div></div>
+        <div class="sec-note">§23 · E-4 完整适用：只导 user turn，AI 的话整条丢弃</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-3">
+        <div class="card card-pad" style="text-align:center;">
+          <div style="font:600 13px var(--f-serif);color:var(--ink)">ChatGPT</div>
+          <div class="stat-sub">conversations.json</div>
+          <button class="btn btn-ghost mt8" style="font-size:11px;padding:6px 12px;" onclick="document.getElementById('relocatePlan').classList.remove('hidden')">选择文件…</button>
+        </div>
+        <div class="card card-pad" style="text-align:center;">
+          <div style="font:600 13px var(--f-serif);color:var(--ink)">Claude</div>
+          <div class="stat-sub">导出包 .zip</div>
+          <button class="btn btn-ghost mt8" style="font-size:11px;padding:6px 12px;" onclick="document.getElementById('relocatePlan').classList.remove('hidden')">选择文件…</button>
+        </div>
+        <div class="card card-pad" style="text-align:center;">
+          <div style="font:600 13px var(--f-serif);color:var(--ink)">纯文本</div>
+          <div class="stat-sub">plaintext · 按行切分</div>
+          <button class="btn btn-ghost mt8" style="font-size:11px;padding:6px 12px;" onclick="document.getElementById('relocatePlan').classList.remove('hidden')">选择文件…</button>
+        </div>
+      </div>
+
+      <div id="relocatePlan" class="card card-pad mt14 hidden">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">导入计划 · RelocationPlan</b>
+          <span class="badge b-warn">待确认 · 超 10k turns 需二次确认</span>
+        </div>
+        <div class="grid g-4 mt8" style="gap:12px;">
+          <div class="field"><label>source</label><input value="chatgpt"></div>
+          <div class="field"><label>userTurns（AI 回复已丢弃）</label><input value="4,812 / 原 9,634 条"></div>
+          <div class="field"><label>chunks（4000 字符切分 · R5 过渡）</label><input value="1,206"></div>
+          <div class="field"><label>rateLimit（防碎片层爆炸）</label><input value="6/min · 队列串行"></div>
+        </div>
+        <div class="field mt8"><label>tagging · 可整体追溯 / 整体 contest</label><input value="titlePrefix: [import:chatgpt] · tags: imported, chatgpt, batch:12"></div>
+        <div class="feed mt8" style="background:var(--gold-soft);border:1px solid var(--gold);border-radius:6px;padding:10px 12px;">
+          <div class="feed-row"><span class="feed-tag">incinerate</span><span class="feed-body">导入包落盘期间加密（复用 ENCRYPTION_KEY），处理完毕<span class="warn">物理删除</span> · 崩溃从 chunk checkpoint 断点续传</span></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;" class="mt14">
+          <button class="btn btn-terra" onclick="document.getElementById('relocatePlan').classList.add('hidden')">放弃</button>
+          <button class="btn" onclick="document.getElementById('relocatePlan').classList.add('hidden');document.getElementById('relocateRun').classList.remove('hidden')">开始搬家</button>
+        </div>
+      </div>
+
+      <div id="relocateRun" class="card card-pad mt14 hidden">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">batch:12 · 进行中</b>
+          <span class="sec-note">完成后强制执行一轮 reflect —— 大批量碎片需要反刍收口</span>
+        </div>
+        <div class="pipe mt14">
+          <div class="pipe-node"><div class="st">pending</div><div class="n">—</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node live"><div class="st">running</div><div class="n">412<span style="font-size:11px;">/1206</span></div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">cooling</div><div class="n">—</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">reflecting</div><div class="n">—</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">done</div><div class="n">—</div></div>
+        </div>
+        <div class="bar mt8"><i class="aegean" style="width:34%"></i></div>
+        <div class="pipe-caption">6/min 限速 · 预计 3.3 小时 · 每 chunk 落 checkpoint</div>
+      </div>
+
+      <div class="card card-pad mt14">
+        <b style="font:600 14px var(--f-serif);color:var(--ink)">历史批次</b>
+        <table class="tbl mt8">
+          <thead><tr><th>batch</th><th>source</th><th>turns</th><th>完成于</th><th>reflect</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">batch:07</td><td>chatgpt</td><td class="mono">3,102</td><td class="mono">2026-07-02</td>
+              <td><span class="badge b-ok">done</span></td>
+              <td><button class="btn btn-terra" style="padding:5px 10px;font-size:11px;">整批 contest</button></td>
+            </tr>
+            <tr>
+              <td class="mono">batch:03</td><td>plaintext</td><td class="mono">388</td><td class="mono">2026-05-19</td>
+              <td><span class="badge b-ok">done</span></td>
+              <td><button class="btn btn-terra" style="padding:5px 10px;font-size:11px;">整批 contest</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stat-sub mt8">「过去的自己」不豁免信任：导入内容照常可被 contest，盲推导审计兜底（§23.3）。</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΧΑΡΤΟΓΡΑΦΟΣ · mockup v0.1（静态稿，剖面层位可点击）</span>
+      <span>看见引擎如何记住你。</span>
+    </div>
+  </main>
+</div>
+
+<script>
+  const layers = ['claims', 'threads', 'fragments'];
+  const svgIds = { claims: 'lyClaims', threads: 'lyThreads', fragments: 'lyFragments' };
+  function show(layer) {
+    layers.forEach(l => {
+      document.getElementById('panel-' + l).classList.toggle('hidden', l !== layer);
+      document.getElementById(svgIds[l]).setAttribute('opacity', l === layer ? '1' : '0.55');
+    });
+  }
+  document.querySelectorAll('.anat-layer').forEach(g => {
+    g.addEventListener('click', () => show(g.dataset.layer));
+  });
+  show('claims');
+</script>
+</body>
+</html>
