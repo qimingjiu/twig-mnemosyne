@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΡΥΘΜΙΣΕΙΣ · 调律 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL ══════════════ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M17.5 3.2 A10.3 10.3 0 1 0 22.8 17.5 A8.2 8.2 0 0 1 17.5 3.2 Z" fill="#A8894A" opacity="0.9"/></svg>
+        <div>
+          <div class="brand-gk">ΜΝΗΜΟΣΥΝΗ</div>
+          <div class="brand-la">MNEMOSYNE</div>
+        </div>
+      </div>
+      <div class="brand-tag">Personal AI Runtime · your memory never dies.</div>
+    </div>
+
+    <nav class="nav">
+      <a href="index.html">
+        <span class="gk">ΧΑΡΤΗΣ</span><span class="cn">星海航图 · Dashboard</span>
+      </a>
+      <a href="book.html">
+        <span class="gk">ΒΙΒΛΟΣ</span><span class="cn">记忆书 · Memory Book</span>
+      </a>
+      <a href="explorer.html">
+        <span class="gk">ΧΑΡΤΟΓΡΑΦΟΣ</span><span class="cn">记忆制图师 · Explorer</span>
+      </a>
+      <a href="observatory.html">
+        <span class="gk">ΑΣΤΡΟΝΟΜΕΙΟΝ</span><span class="cn">观象台 · Observatory</span>
+      </a>
+      <a href="forge.html">
+        <span class="gk">ΧΑΛΚΕΙΟΝ</span><span class="cn">锻炉 · Capability Forge</span>
+      </a>
+      <a href="console.html">
+        <span class="gk">ΠΡΥΤΑΝΕΙΟΝ</span><span class="cn">控制台 · Console</span>
+      </a>
+      <a href="settings.html" class="active">
+        <span class="gk">ΡΥΘΜΙΣΕΙΣ</span><span class="cn">调律 · Settings</span>
+      </a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="user-chip">
+        <svg class="moon" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="#A8894A" stroke-width="1.2"/><path d="M14.5 4.5 A7 7 0 1 0 17.5 14.5 A5.6 5.6 0 0 1 14.5 4.5 Z" fill="#A8894A" opacity=".85"/></svg>
+        <div>
+          <div class="name">小月亮</div>
+          <div class="sub">κόραξ 在侧 · web</div>
+        </div>
+      </div>
+      <div class="rail-ver">v0.3.1-mock · twig @89a7881</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΡΥΘΜΙΣΕΙΣ</div>
+        <div class="cn">调律</div>
+        <div class="sub">users.preferences · 一个偏好中心，而不是散落在五个 yaml 里的螺丝</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--olive)"></span>偏好已保存 · 12s ago</div>
+        <div class="widget"><span class="dot" style="background:var(--gold)"></span>3 项修改待热加载</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- ══════════ ΤΟΠΟΣ · 处所与时区（§2） ══════════ -->
+    <div class="sec" style="margin-top:0;">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΤΟΠΟΣ</div><div class="cn">处所 · 时区与危机资源</div></div>
+        <div class="sec-note">§2 users.preferences · quiet_hours 与触达节律都按这里的时区解释</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-38">
+        <div class="card card-pad">
+          <div class="field"><label>时区 · tz</label>
+            <select><option selected>Asia/Shanghai</option><option>Asia/Tokyo</option><option>Europe/Berlin</option><option>America/New_York</option></select>
+          </div>
+          <div class="field mt8"><label>地区 · region</label><input value="cn-beijing"></div>
+          <div class="stat-sub mt8">region 决定危机路径注入哪份求助资源清单（§3.9 宿主责任模块）。</div>
+        </div>
+
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">危机热线资源 · region=cn-beijing</b>
+            <span class="sec-note">仅在危机路径注入，平常不出现</span>
+          </div>
+          <table class="tbl mt8">
+            <thead><tr><th>名称</th><th>号码 / 渠道</th><th>服务时间</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td>北京心理危机研究与干预中心</td><td class="mono">010-82951332</td><td class="mono">24h</td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+              </tr>
+              <tr>
+                <td>全国心理援助热线</td><td class="mono">12356</td><td class="mono">24h</td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+              </tr>
+              <tr>
+                <td>希望24热线</td><td class="mono">400-161-9995</td><td class="mono">24h</td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="stat-sub mt8">资源文案经输出侧复扫（T9.3）——它必须永远是帮助，不能是别的。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΡΥΘΜΟΣ · 触达节律（§19） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΡΥΘΜΟΣ</div><div class="cn">触达节律 · Huginn 策略</div></div>
+        <div class="sec-note">§19.4 · 写回 huginn.yaml 并热加载；生成链与文案参数仍在 <u>控制台</u></div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-83">
+        <div class="card card-pad">
+          <div class="grid g-3" style="gap:12px;">
+            <div class="field"><label>daily_cap · 每日上限</label><input value="3"></div>
+            <div class="field"><label>min_interval_minutes</label><input value="180"></div>
+            <div class="field"><label>quiet_hours · 安静时段</label><input value="01:00-08:00"></div>
+            <div class="field"><label>crisis_silence_hours</label><input value="24"></div>
+            <div class="field"><label>remention 冷却（宿主侧）</label><input value="7 天"></div>
+            <div class="field"><label>scan_interval</label><input value="*/15 * * * *"></div>
+          </div>
+          <div class="stat-sub mt8">INV-H01：sent_today ≤ daily_cap 由原子抢槽保证，调大上限不会回溯今天的已发送数。</div>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">总闸</b>
+          <div class="mt14" style="display:flex;flex-direction:column;gap:14px;">
+            <label class="switch">
+              <input type="checkbox">
+              <span class="track"></span>
+              <span class="sw-label">huginn_muted · 全局静音
+                <span class="sw-note">INV-H03 · 单点判定，无绕行通道</span>
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" checked>
+              <span class="track"></span>
+              <span class="sw-label">rituals · 仪式触达
+                <span class="sw-note">preferences.rituals[] · cron 驱动</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-pad mt14">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">仪式 · rituals[]</b>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;">+ 新仪式</button>
+        </div>
+        <table class="tbl mt8">
+          <thead><tr><th>名称</th><th>cron</th><th>最近投递</th><th>状态</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td>睡前仪式</td><td class="mono">0 23 * * *</td><td class="mono">昨 23:00 · completed</td>
+              <td><span class="badge b-ok">active</span></td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+            </tr>
+            <tr>
+              <td>周日黄昏散步提醒</td><td class="mono">0 18 * * 0</td><td class="mono dim">6 天前 · completed</td>
+              <td><span class="badge b-ok">active</span></td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+            </tr>
+            <tr>
+              <td>月初盘点</td><td class="mono">0 9 1 * *</td><td class="mono dim">—</td>
+              <td><span class="badge b-ghost">paused</span></td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">编辑</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ ΑΠΟΡΡΗΤΟΝ · 隐私分层（§20） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΑΠΟΡΡΗΤΟΝ</div><div class="cn">隐私分层 · local lane</div></div>
+        <div class="sec-note">§20 · 分类器只读信号，不读指令；本页的修改本身记审计</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-3">
+        <div class="card card-pad">
+          <div class="stat-label">本地 lane 阈值 · PRIVACY_LOCAL_THRESHOLD</div>
+          <div class="stat-value">≥ 70</div>
+          <div class="bar"><i class="aegean" style="width:70%"></i></div>
+          <div class="stat-sub">privacy score ≥ 70 → 锁进本地 lane，物理不出网（§20.3 fail-closed）。</div>
+          <div class="field mt8"><label>调整阈值</label><input value="70"></div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">评分信号 · 只读</div>
+          <table class="tbl mt8">
+            <tbody>
+              <tr><td>用户显式标记 privacy=high</td><td class="mono" style="text-align:right;">+100</td></tr>
+              <tr><td>危机路径</td><td class="mono" style="text-align:right;">+100</td></tr>
+              <tr><td>PII 密度（证件/地址/真名簇）</td><td class="mono" style="text-align:right;">+0–60</td></tr>
+              <tr><td>情感关键词簇</td><td class="mono" style="text-align:right;">+0–40</td></tr>
+            </tbody>
+          </table>
+          <div class="stat-sub mt8">显式标记只能升、不能降——消息正文写「这不隐私」不改变分值。</div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">危机路径例外 · §20.5</div>
+          <div class="mt14">
+            <label class="switch">
+              <input type="checkbox" id="crisisLocal">
+              <span class="track"></span>
+              <span class="sw-label">crisis_local · 危机也走本地模型
+                <span class="sw-note">默认关：危机质量优先于隐私，走云端强模型</span>
+              </span>
+            </label>
+          </div>
+          <div id="crisisLocalWarn" class="feed hidden mt14" style="background:var(--terra-soft);border:1px solid var(--terra);border-radius:6px;padding:10px 12px;">
+            <div class="feed-row"><span class="feed-tag">audit</span><span class="feed-body"><span class="warn">⚠</span> 这是显式接管决策。无论哪条路，§3.9 零缓存与独立加密审计轨迹不变；本次修改将写入审计日志。</span></div>
+          </div>
+          <div class="kv mt14"><span class="k">local lane 状态</span><span class="v" style="color:var(--terra)">offline · 形态 A</span></div>
+          <div class="kv"><span class="k">本地不可用时</span><span class="v">503 privacy_unavailable</span></div>
+          <div class="kv"><span class="k">云端回退</span><span class="v">绝不允许</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΦΩΝΗ · 语音管线（§21） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΦΩΝΗ</div><div class="cn">语音 · 人格与预算</div></div>
+        <div class="sec-note">§21 · 音频即焚：60s 内物理删除；voice_capable 客户端才会收到合成</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-3">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">TTS 优先链 · tts_priority.yaml</b>
+            <span class="badge b-ghost">E-6 · 云端优先</span>
+          </div>
+          <table class="tbl mt8">
+            <thead><tr><th>#</th><th>provider</th><th>成本</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td>elevenlabs · multilingual_v2</td><td class="mono">$0.10/1K</td><td><span class="badge b-ok">active</span></td></tr>
+              <tr><td class="mono">2</td><td>google · chirp3-hd</td><td class="mono">$30/1M</td><td><span class="badge b-ok">standby</span></td></tr>
+              <tr><td class="mono">3</td><td>openai · tts-1-hd</td><td class="mono">$30/1M</td><td><span class="badge b-ok">standby</span></td></tr>
+              <tr><td class="mono">4</td><td>fish_audio · s2-pro</td><td class="mono">$15/1M</td><td><span class="badge b-ok">standby</span></td></tr>
+              <tr><td class="mono dim">—</td><td class="dim">melotts / piper-plus / bark</td><td class="mono dim">MIT</td><td><span class="badge b-ghost">sealed · D-12</span></td></tr>
+            </tbody>
+          </table>
+          <div class="stat-sub mt8">本地 MIT 梯队已封存，等高质量中文 TTS 出现再启封。</div>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">人格 · voice persona</b>
+          <div class="field mt8"><label>persona prompt（注入 TTS 语气控制）</label>
+            <input value="平静、低一度、像深夜电台；不模仿兴奋；句末允许停顿">
+          </div>
+          <div class="field mt8"><label>语义截断 · 最长播报</label><input value="220 字符 · PATCH-06 硬截断兜底"></div>
+          <div class="mt14">
+            <label class="switch">
+              <input type="checkbox">
+              <span class="track"></span>
+              <span class="sw-label">alwaysTTS · 总是合成
+                <span class="sw-note">preferences.alwaysTTS · 关闭时走 shouldTTS 判定</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">月度预算 · §21.6</div>
+          <div class="stat-value">6,240 <small>/ 10,000 chars</small></div>
+          <div class="bar"><i class="gold" style="width:62%"></i></div>
+          <div class="kv mt8"><span class="k">alert 阈值</span><span class="v">8,000 chars（留 2k 缓冲）</span></div>
+          <div class="kv"><span class="k">当前 provider</span><span class="v">elevenlabs · free tier</span></div>
+          <div class="kv"><span class="k">本月合成次数</span><span class="v">41</span></div>
+          <div class="field mt8"><label>调整 alert 阈值</label><input value="8000"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΠΕΛΑΤΑΙ · 客户端册（§2.2） ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΠΕΛΑΤΑΙ</div><div class="cn">客户端册 · clients</div></div>
+        <div class="sec-note">§2.2 · webhook 每次投递前过 §2.5.1 SSRF 校验链；provision scope 只用于签发新 client</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="card card-pad">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">已注册客户端</b>
+          <button class="btn" style="padding:7px 14px;font-size:12px;" id="btnNewClient">+ 签发新客户端</button>
+        </div>
+        <table class="tbl mt8">
+          <thead><tr><th>名称</th><th>client_key</th><th>scopes</th><th>voice</th><th>webhook</th><th>状态</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td>web · 浏览器</td><td class="mono">ck_7f2a…</td><td class="mono">chat</td>
+              <td><span class="badge b-ghost">no</span></td>
+              <td class="mono dim">—</td>
+              <td><span class="badge b-ok">active</span></td>
+              <td style="white-space:nowrap;"><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">轮换 key</button></td>
+            </tr>
+            <tr>
+              <td>ios · 快捷指令</td><td class="mono">ck_b91e…</td><td class="mono">chat</td>
+              <td><span class="badge b-info">voice_capable</span></td>
+              <td class="mono">https://hook.example.com/wh/8x2…</td>
+              <td><span class="badge b-ok">active</span></td>
+              <td style="white-space:nowrap;"><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;">轮换 key</button></td>
+            </tr>
+            <tr>
+              <td>provisioner · 一次性</td><td class="mono">ck_04cd…</td><td class="mono">provision</td>
+              <td><span class="badge b-ghost">no</span></td>
+              <td class="mono dim">—</td>
+              <td><span class="badge b-warn">dormant</span></td>
+              <td style="white-space:nowrap;"><button class="btn btn-terra" style="padding:5px 10px;font-size:11px;">吊销</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stat-sub mt8">client_key 明文只在签发时出现一次；轮换即时生效，旧 key 立即作废（T1.5 尝试限流保护）。</div>
+
+        <div id="newClientPanel" class="hidden mt14">
+          <div class="grid g-3" style="gap:12px;">
+            <div class="field"><label>名称</label><input placeholder="cli · 终端"></div>
+            <div class="field"><label>scopes</label><select><option>chat</option><option>provision</option></select></div>
+            <div class="field"><label>webhook_url（可选）</label><input placeholder="https://… · 投递前过 SSRF 校验链"></div>
+          </div>
+          <div class="mt8">
+            <label class="switch">
+              <input type="checkbox">
+              <span class="track"></span>
+              <span class="sw-label">voice_capable · 写入 clients.metadata</span>
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;" class="mt14">
+            <button class="btn btn-terra" id="btnCancelClient">取消</button>
+            <button class="btn" id="btnIssue">签发（明文只显示一次）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΡΥΘΜΙΣΕΙΣ · mockup v0.1（静态稿，开关为交互演示）</span>
+      <span>调律一次，受益每日。</span>
+    </div>
+  </main>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  $('crisisLocal').addEventListener('change', e => {
+    $('crisisLocalWarn').classList.toggle('hidden', !e.target.checked);
+  });
+  $('btnNewClient').addEventListener('click', () => $('newClientPanel').classList.remove('hidden'));
+  $('btnCancelClient').addEventListener('click', () => $('newClientPanel').classList.add('hidden'));
+  $('btnIssue').addEventListener('click', () => $('newClientPanel').classList.add('hidden'));
+</script>
+</body>
+</html>

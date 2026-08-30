@@ -5,8 +5,7 @@
 import type { Pool } from 'pg'
 import type { TwigContextPacket } from '../memory/types.js'
 import type { TwigAdapter } from '../memory/TwigAdapter.js'
-import { getRecentMessages, type RecentMessage } from '../memory/recent.js'
-import { requireModel } from './modelRegistry.js'
+import { getRecentMessages, type RecentMessage } from '../memory/recent.js'import { requireModel } from './modelRegistry.js'
 import { computeBudget, type Budget } from './budget.js'
 import { CRISIS_PROMPT, DEFAULT_CRISIS_RESOURCES } from '../crisis/lexicon.js'
 import { VOICE_PERSONA_PROMPT } from '../voice/persona.js'
@@ -31,6 +30,9 @@ export interface OutgoingMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   cache_control?: { type: 'ephemeral' }
+  /** §5 工具回路历史回放（getRecentMessages 重建） */
+  tool_calls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[]
+  tool_call_id?: string
 }
 
 export interface BuiltContext {
@@ -120,7 +122,15 @@ export class ContextBuilder {
     }
 
     return {
-      messages: [systemMsg, ...recent.map(m => ({ role: m.role, content: m.content }) as OutgoingMessage)],
+      messages: [
+        systemMsg,
+        ...recent.map(m => ({
+          role: m.role,
+          content: m.content,
+          ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
+          ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+        }) as OutgoingMessage),
+      ],
       narrativeVersion: packet ? narrativeVersionOf(packet.promptText) : 'crisis',
       budget,
       packet,

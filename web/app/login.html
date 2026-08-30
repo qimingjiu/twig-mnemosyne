@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΕΙΣΟΔΟΣ · 登录 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+<style>
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login-card { width: min(440px, 100%); background: var(--panel); border: 1px solid var(--hairline);
+    border-radius: 14px; box-shadow: var(--shadow-2); padding: 34px 36px 28px; }
+  .login-gk { font: 600 24px/1.1 var(--f-greek); letter-spacing: .14em; color: var(--ink); text-align: center; }
+  .login-cn { font: 500 12px/1.4 var(--f-serif); color: var(--ink-3); text-align: center; margin-top: 6px; letter-spacing: .2em; }
+  .login-div { height: 1px; background: linear-gradient(90deg, transparent, var(--hairline-2), transparent); margin: 20px 0; }
+  .login-note { font: 400 10.5px/1.7 var(--f-mono); color: var(--ink-3); margin-top: 14px; }
+  .login-err { display: none; margin-top: 12px; padding: 9px 12px; border-radius: 8px; font: 500 12px/1.5 var(--f-body);
+    color: var(--terra); background: var(--terra-soft); border: 1px solid var(--terra); }
+  .login-err.show { display: block; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-gk">ΜΝΗΜΟΣΥΝΗ</div>
+    <div class="login-cn">仅主人可入 · identity is layer 1</div>
+    <div class="login-div"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label>eternal_id（bootstrap 输出的 64 位十六进制）</label>
+        <input id="eternalId" autocomplete="username" spellcheck="false" placeholder="a3f9…">
+      </div>
+      <div class="field">
+        <label>master_key（主口令 · 只用于验证，绝不存浏览器）</label>
+        <input id="masterKey" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <div class="field">
+        <label>或：直接粘贴已有的 web client_key（mn_…）</label>
+        <input id="clientKey" spellcheck="false" placeholder="留空则用 master_key 重新签发">
+      </div>
+      <button class="btn" type="submit" style="width:100%;justify-content:center;margin-top:6px;" id="submitBtn">进入星海航图</button>
+    </form>
+
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-note">
+      ※ master_key 路径会重新签发 web client_key，其他已登录的 web 会话将被顶下线。<br>
+      ※ 尝试限制：10 次 / 15 分钟（T1.5）。
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/boot.js"></script>
+</body>
+</html>

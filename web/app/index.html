@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΧΑΡΤΗΣ · 星海航图 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL（由 src/rail.js 注入） ══════════════ -->
+  <aside class="rail" data-rail></aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΧΑΡΤΗΣ ΤΗΣ ΜΝΗΜΗΣ</div>
+        <div class="cn">星海航图</div>
+        <div class="sub">narrative cartography · Huginn &amp; Muninn 测绘</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget" id="moonphase">—</div>
+        <div class="widget"><span class="dot ok" style="background:var(--olive)"></span><span id="clock">--:--</span></div>
+        <div class="widget">今日触达 <b style="color:var(--aegean-deep)">&nbsp;<span id="outreach-today">–</span></b></div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <div class="grid g-83">
+
+      <!-- ── 航海图 hero（示意插画：岛屿布局固定，实时数据见右栏与指标区） ── -->
+      <section class="card chart-wrap">
+        <svg viewBox="0 0 1160 620" role="img" aria-label="记忆航海图">
+          <defs>
+            <linearGradient id="seaGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#EDF3F5"/>
+              <stop offset="1" stop-color="#F8F5ED"/>
+            </linearGradient>
+
+            <!-- 主岛 -->
+            <path id="isle-main" d="M470 320 C455 285 480 250 520 245 C545 218 600 215 625 240 C665 232 700 260 692 295 C712 320 695 360 660 362 C645 392 590 398 565 378 C530 392 485 375 482 345 C468 338 466 330 470 320 Z"/>
+            <!-- 换工作岛 -->
+            <path id="isle-erg" d="M215 200 C205 175 225 150 255 150 C270 132 305 130 322 148 C350 145 368 170 358 192 C368 212 348 235 320 232 C305 250 265 252 250 236 C228 240 210 222 215 200 Z"/>
+            <!-- 母亲健康岛 -->
+            <path id="isle-yg" d="M770 440 C762 420 778 398 802 398 C814 384 842 382 856 396 C878 394 894 414 886 432 C894 448 876 468 854 465 C842 480 808 481 796 468 C778 471 764 456 770 440 Z"/>
+            <!-- 夜跑岛 -->
+            <path id="isle-run" d="M345 478 C340 462 352 446 370 446 C380 436 400 435 410 445 C426 444 436 458 430 472 C436 484 422 498 406 496 C396 506 372 507 362 497 C348 499 340 490 345 478 Z"/>
+            <!-- 希腊语岛 -->
+            <path id="isle-gr" d="M922 186 C918 174 928 162 942 162 C950 154 968 153 976 161 C990 160 998 172 993 182 C998 192 986 204 974 202 C966 210 946 211 938 203 C926 205 918 196 922 186 Z"/>
+
+            <path id="raven" d="M-13 0 Q-6.5 -8 0 0 Q6.5 -8 13 0" fill="none" stroke="#16324A" stroke-width="1.8" stroke-linecap="round"/>
+            <path id="star4" d="M0 -3.4 L0.9 -0.9 L3.4 0 L0.9 0.9 L0 3.4 L-0.9 0.9 L-3.4 0 L-0.9 -0.9 Z" fill="#A8894A"/>
+          </defs>
+
+          <!-- 海面 -->
+          <rect x="0" y="0" width="1160" height="620" fill="url(#seaGrad)"/>
+
+          <!-- 经纬网 -->
+          <g stroke="#DCE4E8" stroke-width="0.7" stroke-dasharray="2 6">
+            <path d="M40 0 V620 M150 0 V620 M260 0 V620 M370 0 V620 M480 0 V620 M590 0 V620 M700 0 V620 M810 0 V620 M920 0 V620 M1030 0 V620 M1140 0 V620"/>
+            <path d="M0 40 H1160 M0 135 H1160 M0 230 H1160 M0 325 H1160 M0 420 H1160 M0 515 H1160 M0 600 H1160"/>
+          </g>
+
+          <!-- 罗盘恒向线 -->
+          <g stroke="#D5E0E6" stroke-width="0.8">
+            <path d="M1000 118 L1160 28 M1000 118 L1160 268 M1000 118 L852 0 M1000 118 L700 620 M1000 118 L1160 520"/>
+          </g>
+
+          <!-- 浪纹 -->
+          <g fill="none" stroke="#C7D8DF" stroke-width="1.1">
+            <path d="M150 300 q5 -6 10 0 q5 6 10 0 M178 306 q5 -6 10 0"/>
+            <path d="M480 118 q5 -6 10 0 q5 6 10 0"/>
+            <path d="M742 108 q5 -6 10 0 q5 6 10 0 M770 114 q5 -6 10 0"/>
+            <path d="M1052 420 q5 -6 10 0 q5 6 10 0"/>
+            <path d="M640 522 q5 -6 10 0 q5 6 10 0"/>
+            <path d="M232 566 q5 -6 10 0 q5 6 10 0"/>
+            <path d="M84 208 q5 -6 10 0 q5 6 10 0"/>
+            <path d="M950 545 q5 -6 10 0 q5 6 10 0"/>
+          </g>
+
+          <!-- ══ 岛屿群 ══ -->
+          <g fill="#FCFAF4" stroke="#16324A" stroke-width="1.6">
+            <use href="#isle-main"/>
+            <use href="#isle-erg"/>
+            <use href="#isle-yg"/>
+            <use href="#isle-run"/>
+            <use href="#isle-gr"/>
+          </g>
+
+          <!-- 内等高线 -->
+          <g fill="none" stroke="#9FB4C0" stroke-width="0.8">
+            <use href="#isle-main" transform="translate(580 306) scale(.8)  translate(-580 -306)"/>
+            <use href="#isle-main" transform="translate(580 306) scale(.6)  translate(-580 -306)"/>
+            <use href="#isle-erg"  transform="translate(280 190) scale(.78) translate(-280 -190)"/>
+            <use href="#isle-yg"   transform="translate(830 434) scale(.76) translate(-830 -434)"/>
+            <use href="#isle-run"  transform="translate(388 472) scale(.7)  translate(-388 -472)"/>
+          </g>
+
+          <!-- 山丘笔触 -->
+          <g stroke="#7E96A6" stroke-width="0.9" fill="none">
+            <path d="M540 300 l14 -16 l14 16 M575 310 l12 -13 l12 13 M520 340 l11 -12 l11 12"/>
+            <path d="M262 185 l11 -12 l11 12 M290 200 l10 -11 l10 11"/>
+            <path d="M812 430 l10 -11 l10 11 M838 442 l9 -10 l9 10"/>
+            <path d="M372 470 l8 -9 l8 9"/>
+          </g>
+
+          <!-- ══ Huginn 航线（示意） ══ -->
+          <path d="M505 288 C450 250 400 236 350 214" fill="none" stroke="#16324A" stroke-width="1.3" stroke-dasharray="7 5"/>
+          <use href="#raven" x="428" y="248"/>
+          <text x="292" y="266" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#16324A">HUGINN · vein-nudge</text>
+
+          <!-- ══ 岛名标注 ══ -->
+          <g text-anchor="middle">
+            <text x="280" y="112" font-family="'Cormorant Garamond',serif" font-size="13" letter-spacing="3" fill="#16324A">ἘΡΓΑΣΙΑ</text>
+            <text x="580" y="430" font-family="'Cormorant Garamond',serif" font-size="14" letter-spacing="3.5" fill="#16324A">ΜΝΗΜΗ</text>
+            <text x="830" y="502" font-family="'Cormorant Garamond',serif" font-size="12" letter-spacing="2.5" fill="#16324A">ὙΓΙΕΙΑ</text>
+            <text x="388" y="534" font-family="'Cormorant Garamond',serif" font-size="11.5" letter-spacing="2.5" fill="#16324A">ΔΡΟΜΟΣ</text>
+            <text x="958" y="233" font-family="'Cormorant Garamond',serif" font-size="12" letter-spacing="2.5" fill="#16324A">ἙΛΛΗΝΙΚΆ</text>
+          </g>
+
+          <!-- ══ 罗盘玫瑰 ══ -->
+          <g>
+            <text x="1000" y="66" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="13" fill="#16324A">Β</text>
+            <circle cx="1000" cy="118" r="38" fill="#FCFAF4" stroke="#16324A" stroke-width="1.2"/>
+            <circle cx="1000" cy="118" r="30" fill="none" stroke="#16324A" stroke-width=".7"/>
+            <path d="M1000 90 L1006 118 L1000 146 L994 118 Z" fill="#16324A"/>
+            <path d="M972 118 L1000 112 L1028 118 L1000 124 Z" fill="#16324A"/>
+            <path d="M1000 97 L1004 118 L1000 139 L996 118 Z" fill="#A8894A" transform="rotate(45 1000 118)"/>
+            <path d="M1000 97 L1004 118 L1000 139 L996 118 Z" fill="#A8894A" transform="rotate(-45 1000 118)"/>
+            <circle cx="1000" cy="118" r="3" fill="#A8894A"/>
+          </g>
+
+          <!-- ══ 塞勒涅与恩底弥翁 · 图角饰绘 ══ -->
+          <g>
+            <rect x="40" y="415" width="250" height="165" fill="#FCFAF4" stroke="#16324A" stroke-width="1.4"/>
+            <rect x="45" y="420" width="240" height="155" fill="none" stroke="#16324A" stroke-width=".7"/>
+            <text x="165" y="439" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="11.5" letter-spacing="1.5" fill="#8C6F38">ΣΕΛΗΝΗ ΚΑΙ ἘΝΔΥΜΙΩΝ</text>
+
+            <!-- 月光 -->
+            <path d="M104 458 L150 548 L186 550 L114 452 Z" fill="#A8894A" opacity=".09"/>
+            <!-- 新月（塞勒涅） -->
+            <path d="M101 452 A17 17 0 1 0 101 486 A20 20 0 0 1 101 452 Z" fill="#A8894A" opacity=".9"/>
+            <!-- 星 -->
+            <use href="#star4" x="238" y="468"/>
+            <use href="#star4" x="256" y="494" transform="scale(.8)"/>
+            <use href="#star4" x="222" y="452" transform="scale(.7)"/>
+
+            <!-- 拉特摩斯山 -->
+            <path d="M55 552 Q92 526 132 546 T245 544" fill="none" stroke="#16324A" stroke-width="1.2"/>
+            <path d="M60 560 Q110 544 170 556 T250 552" fill="none" stroke="#16324A" stroke-width=".8" opacity=".6"/>
+
+            <!-- 沉睡的牧羊人 -->
+            <ellipse cx="162" cy="537" rx="17" ry="5.5" fill="none" stroke="#16324A" stroke-width="1.2"/>
+            <circle cx="147" cy="531" r="4.6" fill="none" stroke="#16324A" stroke-width="1.2"/>
+            <path d="M186 540 L183 515 A5.5 5.5 0 0 1 194 512" fill="none" stroke="#16324A" stroke-width="1.2"/>
+          </g>
+
+          <!-- ══ 比例尺 ══ -->
+          <g>
+            <path d="M880 590 H1010" stroke="#16324A" stroke-width="1.2"/>
+            <path d="M880 585 V590 M945 587 V590 M1010 585 V590" stroke="#16324A" stroke-width="1.2"/>
+            <text x="945" y="602" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="10" letter-spacing="2" fill="#3A4653">ΣΤΑΔΙΑ</text>
+          </g>
+
+          <!-- ══ 图题 ══ -->
+          <g>
+            <rect x="36" y="30" width="330" height="58" fill="#FCFAF4" stroke="#16324A" stroke-width="1.3"/>
+            <rect x="40" y="34" width="322" height="50" fill="none" stroke="#A8894A" stroke-width=".7"/>
+            <text x="201" y="56" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="17" letter-spacing="3" fill="#16324A">ΧΑΡΤΗΣ ΤΗΣ ΜΝΗΜΗΣ</text>
+            <text x="201" y="76" text-anchor="middle" font-family="'Noto Serif SC',serif" font-size="10.5" fill="#8C6F38">记忆航海图 · Huginn &amp; Muninn 测绘 · MMXXVI</text>
+          </g>
+
+          <!-- 图框 -->
+          <rect x="8" y="8" width="1144" height="604" fill="none" stroke="#16324A" stroke-width="1.5"/>
+          <rect x="14" y="14" width="1132" height="592" fill="none" stroke="#16324A" stroke-width=".6"/>
+        </svg>
+
+        <div class="chart-foot">
+          <span>◎ 港口 = 论断（conviction）&nbsp;&nbsp;·&nbsp;&nbsp;虚线航线 = Huginn 触达（实时事件见下方铭文流）</span>
+          <span>岛屿布局为示意 · 数据面板已接 /v1/web/*</span>
+        </div>
+      </section>
+
+      <!-- ── 右栏：开放线索 + 拾贝滩（twig /v1/context 实时） ── -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <section class="card card-pad">
+          <div class="sec-title">
+            <div class="gk">ΝΗΣΟΙ</div>
+            <div class="cn" style="font-size:14px;">开放线索 · dragonVein</div>
+          </div>
+          <div class="mt14" id="threads-list"><div class="stat-sub">加载中…</div></div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="sec-title">
+            <div class="gk">ΚΟΓΧΗ</div>
+            <div class="cn" style="font-size:14px;">拾贝滩 · 珊瑚礁</div>
+          </div>
+          <div class="mt14" id="shells-list"><div class="stat-sub">加载中…</div></div>
+          <div class="stat-sub mt8">印章与玻璃珠归衔枝自呈（§18.1）；此岸只拾贝、养珊瑚。</div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ── 指标四联（/v1/web/metrics/summary · 24h） ── -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΜΕΤΡΑ</div><div class="cn">运行指标</div></div>
+        <div class="sec-note" id="metrics-note">/v1/web/metrics/summary · 最近 24 小时</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-4">
+        <div class="card card-pad">
+          <div class="stat-label">Cache Hit Rate</div>
+          <div class="stat-value" id="stat-cache">–<small>%</small></div>
+          <div class="bar" style="display:flex;gap:1px;margin-top:12px;" id="stat-cache-bar"></div>
+          <div class="legend" id="stat-cache-legend"></div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">Provider Health</div>
+          <div class="mt8" id="stat-providers"><div class="stat-sub">加载中…</div></div>
+          <div class="stat-sub mt8" id="providers-sub">fallback 链以 DEFAULT_MODEL_CHAIN 为准</div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">Tokens · 24h</div>
+          <div class="stat-value" id="stat-tokens">–<small> in</small></div>
+          <div class="kv mt8"><span class="k">output</span><span class="v" id="tok-out">–</span></div>
+          <div class="kv"><span class="k">cache read（省下）</span><span class="v" style="color:var(--olive)" id="tok-saved">–</span></div>
+          <div class="kv"><span class="k">cache write</span><span class="v" id="tok-write">–</span></div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="stat-label">Cost · 24h</div>
+          <div class="stat-value" id="stat-cost">–</div>
+          <div class="stat-sub">缓存已省 <b style="color:var(--olive)" id="cost-saved">–</b></div>
+          <div class="stat-label mt14">耳语预算 · TTS chars（月度）</div>
+          <div class="bar"><i class="gold" id="tts-bar" style="width:0%"></i></div>
+          <div class="stat-sub" id="tts-sub">–</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 铭文流（/v1/web/feed · usage + outreach 实时事件） ── -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ἩΜΕΡΟΛΟΓΙΟΝ</div><div class="cn">铭文流 · 航海日志</div></div>
+        <div class="sec-note"><span class="dot ok"></span> live · PII 脱敏在观测侧履行（§11.5）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="card card-pad">
+        <div class="feed feed-scroll" id="feed-list"><div class="stat-sub">加载中…</div></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΜΝΗΜΟΣΥΝΗ · Y2K Dashboard v0.1（index / book / explorer 已接实时后端）</span>
+      <span>爱琴海之夜 · 白昼</span>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/src/boot.js"></script>
+</body>
+</html>

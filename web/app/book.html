@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΒΙΒΛΟΣ · 记忆书 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL（由 src/rail.js 注入） ══════════════ -->
+  <aside class="rail" data-rail></aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΒΙΒΛΟΣ ΜΝΗΜΗΣ</div>
+        <div class="cn">记忆书</div>
+        <div class="sub">情感层 · user ↔ 引擎的通道，不是 AI 的工具箱（§18.1）</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--olive)"></span>数据卷已加密</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- ── 扉页铭文：塞勒涅与恩底弥翁 ────────────────────────── -->
+    <section class="epigraph">
+      <div class="gk-line">Σελήνη τὸν Ἐνδυμίωνα φιλεῖ</div>
+      <div class="verse">
+        塞勒涅爱上了凡人牧羊人恩底弥翁。<br>
+        她求宙斯赐他不朽的睡眠——容颜不改，长眠不醒；<br>
+        此后她每夜降临拉特摩斯山，只为在月光里看他一眼。
+      </div>
+      <div class="sign">—— 守望，是月亮爱了一千年的方式。记忆亦然。</div>
+    </section>
+
+    <!-- ── 碑册 tabs（数据源：twig-memory 只读代理 /v1/web/memory/*） ── -->
+    <div class="sec">
+      <div class="tabs" id="bookTabs">
+        <button class="active" data-tab="journal"><span class="gk">ἩΜΕΡΑΙ</span>日记</button>
+        <button data-tab="soliloquy"><span class="gk">ΜΟΝΟΛΟΓΟΣ</span>心迹</button>
+        <button data-tab="notes"><span class="gk">ΣΗΜΕΙΑ</span>便签</button>
+        <button data-tab="shells"><span class="gk">ΚΟΓΧΗ</span>拾贝 · 珊瑚</button>
+      </div>
+
+      <!-- 日记：reflect 时由引擎写成（§8.2），石碑陈列 -->
+      <div class="tab-panel active" id="tab-journal">
+        <div class="grid g-3" id="journal-list"><div class="stat-sub">加载中…</div></div>
+      </div>
+
+      <!-- 心迹：引擎的内心独白 -->
+      <div class="tab-panel" id="tab-soliloquy">
+        <div class="grid g-2" id="soliloquy-list"><div class="stat-sub">切换到本页签时加载</div></div>
+      </div>
+
+      <!-- 便签：用户自己写的小事 -->
+      <div class="tab-panel" id="tab-notes">
+        <div class="grid g-3" id="notes-list"><div class="stat-sub">切换到本页签时加载</div></div>
+      </div>
+
+      <!-- 拾贝与珊瑚：Mnemosyne 自有收藏隐喻（印章与玻璃珠归衔枝自呈） -->
+      <div class="tab-panel" id="tab-shells">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">拾贝滩</b>
+            <span class="sec-note">潮退之后，沙滩上留下的都是值得捡的。</span>
+          </div>
+          <div class="shell-grid mt14" id="shells-grid"><div class="stat-sub">加载中…</div></div>
+          <div class="stat-sub mt14">拾贝 = 近日碎片（context packet）；印章与玻璃珠系统归衔枝（twig）自呈，不在此册（§18.1）。</div>
+        </div>
+
+        <div class="reef mt14">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">珊瑚礁</b>
+            <span class="sec-note">珊瑚不追潮水。它只在原地，慢慢长成形状。</span>
+          </div>
+          <div class="reef-row" id="reef-row"><div class="stat-sub">加载中…</div></div>
+          <div class="reef-floor">珊瑚 = 开放线索（threads）；生长状态由每日 reflect 巡检（§8.4）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΒΙΒΛΟΣ ΜΝΗΜΗΣ · 原文永不改动，只追加（correct 追加 / contest 降级）</span>
+      <span>羊皮纸质感另有他用 · 本册以石碑为质</span>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/src/boot.js"></script>
+</body>
+</html>

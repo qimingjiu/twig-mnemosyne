@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΑΣΤΡΟΝΟΜΕΙΟΝ · 观象台 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL（由 src/rail.js 注入） ══════════════ -->
+  <aside class="rail" data-rail></aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΑΣΤΡΟΝΟΜΕΙΟΝ</div>
+        <div class="cn">观象台</div>
+        <div class="sub">§10 Agent Orchestration —— Router Agent 怎样分派，泳道怎样游，轨迹怎样被签名</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--aegean)"></span>router · deepseek-flash</div>
+        <div class="widget"><span class="dot" style="background:var(--gold)"></span>轻量单分类器 · StateGraph 待接入</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- 水位 -->
+    <div class="grid g-4" style="margin-top:0;">
+      <div class="card card-pad">
+        <div class="stat-label">活跃泳道 · 1h</div>
+        <div class="stat-value">2 <small>/ 4</small></div>
+        <div class="stat-sub">chat · research 在游</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">今日分类 · intent</div>
+        <div class="stat-value">137</div>
+        <div class="stat-sub">chat 62% · tool 21% · research 12% · coding 5%</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">平均置信度</div>
+        <div class="stat-value">0.88</div>
+        <div class="stat-sub">低于 0.6 转 tool 兜底泳道 · 今日 2 次</div>
+      </div>
+      <div class="card card-pad">
+        <div class="stat-label">检查点 · checkpoints</div>
+        <div class="stat-value">46</div>
+        <div class="stat-sub">全部验签通过 · 0 拒绝恢复</div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΔΙΑΚΛΑΔΩΣΙΣ · 分岔图 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΔΙΑΚΛΑΔΩΣΙΣ</div><div class="cn">分岔 · Router 与泳道</div></div>
+        <div class="sec-note">§10.2 · Router Agent 只看分类专用极短上下文（最近 2 轮 + 摘要），从不接收完整装配产物</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="card chart-wrap">
+        <svg viewBox="0 0 960 260">
+          <!-- Router -->
+          <rect x="30" y="95" width="180" height="70" rx="8" fill="#F0E8D5" stroke="#A8894A"/>
+          <text x="120" y="122" text-anchor="middle" font-family="Cormorant Garamond" font-size="12" letter-spacing="2" fill="#8C6F38">ΡΟΥΤΕΡ</text>
+          <text x="120" y="140" text-anchor="middle" font-size="11" fill="#3A4653">Router Agent · flash</text>
+          <text x="120" y="155" text-anchor="middle" font-size="9" fill="#8A94A0" font-family="JetBrains Mono">唯一分类器 · 时序固定</text>
+
+          <!-- edges -->
+          <path d="M210 118 C 300 118 300 52 380 52" fill="none" stroke="#1E5A7A" stroke-width="1.4"/>
+          <path d="M210 122 C 300 122 300 118 380 118" fill="none" stroke="#1E5A7A" stroke-width="1.4" opacity=".35"/>
+          <path d="M210 138 C 300 138 300 184 380 184" fill="none" stroke="#1E5A7A" stroke-width="1.4"/>
+          <path d="M210 145 C 300 145 300 236 380 236" fill="none" stroke="#1E5A7A" stroke-width="1.4" opacity=".35"/>
+
+          <!-- lanes -->
+          <g>
+            <rect x="380" y="24" width="200" height="56" rx="8" fill="#E3EDF2" stroke="#1E5A7A"/>
+            <text x="480" y="47" text-anchor="middle" font-size="12" font-weight="600" fill="#14405C">chat · 泳道</text>
+            <text x="480" y="65" text-anchor="middle" font-size="9.5" fill="#3A4653" font-family="JetBrains Mono">time · web · music · 在游</text>
+            <circle cx="566" cy="38" r="5" fill="#6B7F59"/>
+          </g>
+          <g opacity=".55">
+            <rect x="380" y="90" width="200" height="56" rx="8" fill="#F4F0E7" stroke="#D8D0BF"/>
+            <text x="480" y="113" text-anchor="middle" font-size="12" font-weight="600" fill="#3A4653">coding · 泳道</text>
+            <text x="480" y="131" text-anchor="middle" font-size="9.5" fill="#8A94A0" font-family="JetBrains Mono">time · web · 空闲</text>
+          </g>
+          <g>
+            <rect x="380" y="156" width="200" height="56" rx="8" fill="#E3EDF2" stroke="#1E5A7A"/>
+            <text x="480" y="179" text-anchor="middle" font-size="12" font-weight="600" fill="#14405C">research · 泳道</text>
+            <text x="480" y="197" text-anchor="middle" font-size="9.5" fill="#3A4653" font-family="JetBrains Mono">time · web · research · 在游</text>
+            <circle cx="566" cy="170" r="5" fill="#6B7F59"/>
+          </g>
+          <g opacity=".55">
+            <rect x="380" y="222" width="200" height="56" rx="8" fill="#F4F0E7" stroke="#D8D0BF"/>
+            <text x="480" y="245" text-anchor="middle" font-size="12" font-weight="600" fill="#3A4653">tool · 泳道</text>
+            <text x="480" y="263" text-anchor="middle" font-size="9.5" fill="#8A94A0" font-family="JetBrains Mono">全能力 · 低置信度兜底</text>
+          </g>
+
+          <!-- downstream -->
+          <path d="M580 52 C 650 52 650 130 720 130" fill="none" stroke="#A8894A" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <path d="M580 184 C 650 184 650 130 720 130" fill="none" stroke="#A8894A" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <rect x="720" y="95" width="210" height="70" rx="8" fill="#FDFCF9" stroke="#D8D0BF"/>
+          <text x="825" y="120" text-anchor="middle" font-size="11.5" font-weight="600" fill="#3A4653">Context Builder → 模型网关</text>
+          <text x="825" y="138" text-anchor="middle" font-size="9.5" fill="#8A94A0" font-family="JetBrains Mono">泳道白名单收敛 schema · §3.5 装配</text>
+          <text x="825" y="152" text-anchor="middle" font-size="9.5" fill="#8A94A0" font-family="JetBrains Mono">checkpoint 每节点落库</text>
+        </svg>
+        <div class="chart-foot">
+          <span>实线 = 当前有流量 · 虚线 = 汇聚到主管线（危机预扫已在更上游完成，§14.2）</span>
+          <span>decisions 只在 TS 侧 · LangGraph 当前为轻量实现</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΙΧΝΗΛΑΣΙΑ · 意图分类史 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΙΧΝΗΛΑΣΙΑ</div><div class="cn">轨迹 · 意图分类史</div></div>
+        <div class="sec-note">最近 24h · 置信度与落点全量可查</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="card card-pad">
+        <table class="tbl">
+          <thead><tr><th>时间</th><th>输入摘要（极短上下文）</th><th>泳道</th><th>置信度</th><th>执行轨迹</th><th>耗时</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">08:14</td><td>「帮我把这个报错看懂…」</td>
+              <td><span class="badge b-info">coding</span></td><td class="mono">0.93</td>
+              <td class="mono dim">router → coding → build → gpt-4o</td><td class="mono">1.9s</td>
+            </tr>
+            <tr>
+              <td class="mono">08:02</td><td>「昨晚跑到第七公里…」</td>
+              <td><span class="badge b-ok">chat</span></td><td class="mono">0.97</td>
+              <td class="mono dim">router → chat → build → sonnet</td><td class="mono">1.4s</td>
+            </tr>
+            <tr>
+              <td class="mono">07:12</td><td>「查一下那篇讲记忆巩固的论文」</td>
+              <td><span class="badge b-info">research</span></td><td class="mono">0.91</td>
+              <td class="mono dim">router → research → search_papers → …</td><td class="mono">3.6s</td>
+            </tr>
+            <tr>
+              <td class="mono">昨 23:40</td><td>「放点助眠的」</td>
+              <td><span class="badge b-warn">tool</span></td><td class="mono">0.58 <span class="badge b-warn" style="font-size:9px;">兜底</span></td>
+              <td class="mono dim">router → tool → music.play ✓票</td><td class="mono">2.2s</td>
+            </tr>
+            <tr>
+              <td class="mono">昨 22:15</td><td>「把那封邮件发了吧」</td>
+              <td><span class="badge b-warn">tool</span></td><td class="mono">0.84</td>
+              <td class="mono dim">router → tool → contested 检查 → askUserFirst → 用户确认 → send_mail</td><td class="mono">4.1s</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stat-sub mt8">「把那封邮件发了吧」命中 contested 域（体检报告论断 → calendar/mail 域降级）——轨迹里完整保留了拦截与确认（§4.7）。</div>
+      </div>
+    </div>
+
+    <!-- ══════════ ΣΗΜΕΙΑ · 检查点 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΣΗΜΕΙΑ</div><div class="cn">检查点 · Checkpoint 存续</div></div>
+        <div class="sec-note">§10.4 · AES-256-GCM 加密（独立于 OAuth 加密钥）+ HMAC-SHA256 验签，验签失败拒绝恢复并告警</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-83">
+        <div class="card card-pad">
+          <table class="tbl">
+            <thead><tr><th>checkpoint</th><th>session</th><th>节点</th><th>加密</th><th>验签</th><th>写入</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">ckpt_9f2a</td><td class="mono">sess_web_0814</td><td class="mono">coding.build</td><td><span class="badge b-ghost">AES-256-GCM</span></td><td><span class="badge b-ok">✓</span></td><td class="mono">08:14:07</td></tr>
+              <tr><td class="mono">ckpt_9f1d</td><td class="mono">sess_web_0802</td><td class="mono">chat.build</td><td><span class="badge b-ghost">AES-256-GCM</span></td><td><span class="badge b-ok">✓</span></td><td class="mono">08:02:41</td></tr>
+              <tr><td class="mono">ckpt_9e88</td><td class="mono">sess_ios_0712</td><td class="mono">research.tools</td><td><span class="badge b-ghost">AES-256-GCM</span></td><td><span class="badge b-ok">✓</span></td><td class="mono">07:12:19</td></tr>
+              <tr><td class="mono">ckpt_9d01</td><td class="mono">sess_web_y2340</td><td class="mono">tool.confirm</td><td><span class="badge b-ghost">AES-256-GCM</span></td><td><span class="badge b-ok">✓</span></td><td class="mono">昨 23:40:55</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">队列 · 待决</b>
+          <div class="kv mt8"><span class="k">待确认票据</span><span class="v">1 · music.play（5min 有效）</span></div>
+          <div class="kv"><span class="k">pending tasks</span><span class="v">0</span></div>
+          <div class="kv"><span class="k">崩溃恢复</span><span class="v">30 天 0 次 · T13.2 就绪</span></div>
+          <div class="feed mt14" style="background:var(--panel-2);border:1px solid var(--hairline);border-radius:6px;padding:10px 12px;">
+            <div class="feed-row"><span class="feed-tag">roadmap</span><span class="feed-body">LangGraph StateGraph + PostgresSaver 加密落库，待工具回路接通后替换轻量分类器（router/lanes 内 TODO 锚点）</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΑΣΤΡΟΝΟΜΕΙΟΝ · 静态稿（数据未接入，规划见 docs）</span>
+      <span>意图被分类，痕迹被签名。</span>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/src/boot.js"></script>
+</body>
+</html>
