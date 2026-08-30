@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΠΡΥΤΑΝΕΙΟΝ · 控制台 — Mnemosyne</title>
+<link rel="stylesheet" href="assets/aegean.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ LEFT RAIL ══════════════ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M17.5 3.2 A10.3 10.3 0 1 0 22.8 17.5 A8.2 8.2 0 0 1 17.5 3.2 Z" fill="#A8894A" opacity="0.9"/></svg>
+        <div>
+          <div class="brand-gk">ΜΝΗΜΟΣΥΝΗ</div>
+          <div class="brand-la">MNEMOSYNE</div>
+        </div>
+      </div>
+      <div class="brand-tag">Personal AI Runtime · your memory never dies.</div>
+    </div>
+
+    <nav class="nav">
+      <a href="index.html">
+        <span class="gk">ΧΑΡΤΗΣ</span><span class="cn">星海航图 · Dashboard</span>
+      </a>
+      <a href="book.html">
+        <span class="gk">ΒΙΒΛΟΣ</span><span class="cn">记忆书 · Memory Book</span>
+      </a>
+      <a href="console.html" class="active">
+        <span class="gk">ΠΡΥΤΑΝΕΙΟΝ</span><span class="cn">控制台 · Console</span>
+      </a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="user-chip">
+        <svg class="moon" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="#A8894A" stroke-width="1.2"/><path d="M14.5 4.5 A7 7 0 1 0 17.5 14.5 A5.6 5.6 0 0 1 14.5 4.5 Z" fill="#A8894A" opacity=".85"/></svg>
+        <div>
+          <div class="name">小月亮</div>
+          <div class="sub">κόραξ 在侧 · web</div>
+        </div>
+      </div>
+      <div class="rail-ver">v0.3.1-mock · twig @89a7881</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="page-title">
+        <div class="gk">ΠΡΥΤΑΝΕΙΟΝ</div>
+        <div class="cn">控制台</div>
+        <div class="sub">model gateway · cache · huginn outbox — 只读面板与手动操作的唯一入口</div>
+      </div>
+      <div class="top-widgets">
+        <div class="widget"><span class="dot" style="background:var(--olive)"></span>全部服务正常</div>
+        <div class="widget"><span class="dot" style="background:var(--gold)"></span>本地 lane 离线</div>
+      </div>
+    </div>
+    <div class="meander"></div>
+
+    <!-- ══════════ ΠΥΛΗ · 模型网关 ══════════ -->
+    <div class="sec" style="margin-top:0;">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ΠΥΛΗ</div><div class="cn">模型网关 · LiteLLM</div></div>
+        <div class="sec-note">决策在 TS 侧，LiteLLM 只做管道（§6.3）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-4">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">openai / gpt-4o</b>
+            <span class="badge b-ok">healthy</span>
+          </div>
+          <div class="kv mt8"><span class="k">latency</span><span class="v">1.42s</span></div>
+          <div class="kv"><span class="k">error rate</span><span class="v">0.8%</span></div>
+          <div class="kv"><span class="k">rpm 用量</span><span class="v">212 / 500</span></div>
+          <div class="kv"><span class="k">health score</span><span class="v">0.91</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">anthropic / sonnet</b>
+            <span class="badge b-ok">healthy</span>
+          </div>
+          <div class="kv mt8"><span class="k">latency</span><span class="v">1.09s</span></div>
+          <div class="kv"><span class="k">error rate</span><span class="v">0.4%</span></div>
+          <div class="kv"><span class="k">rpm 用量</span><span class="v">188 / 400</span></div>
+          <div class="kv"><span class="k">health score</span><span class="v">0.95</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">deepseek / chat</b>
+            <span class="badge b-warn">watch</span>
+          </div>
+          <div class="kv mt8"><span class="k">latency</span><span class="v">0.71s</span></div>
+          <div class="kv"><span class="k">error rate</span><span class="v" style="color:var(--terra)">1.9%</span></div>
+          <div class="kv"><span class="k">rpm 用量</span><span class="v">96 / 1000</span></div>
+          <div class="kv"><span class="k">health score</span><span class="v">0.78</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">ollama / qwen3:8b</b>
+            <span class="badge b-ghost">offline</span>
+          </div>
+          <div class="kv mt8"><span class="k">lane</span><span class="v">local · 隐私分层</span></div>
+          <div class="kv"><span class="k">形态</span><span class="v">A · Tailscale 分离</span></div>
+          <div class="kv"><span class="k">策略</span><span class="v" style="color:var(--terra)">fail-closed</span></div>
+          <div class="kv"><span class="k">云端回退</span><span class="v">拒绝（§20.3）</span></div>
+        </div>
+      </div>
+
+      <div class="card card-pad mt14">
+        <div class="stat-label">Fallback Chain（每个候选独立重装配，§3.8）</div>
+        <div class="mt8" style="font:500 12.5px var(--f-mono);color:var(--ink)">
+          gpt-4o <span style="color:var(--gold)">→</span> claude-sonnet <span style="color:var(--gold)">→</span> gemini-pro
+          <span class="badge b-info" style="margin-left:12px;">今日 fallback 0 次</span>
+          <span class="badge b-ghost">cooldown 60s · retries 2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ἈΠΟΘΗΚΗ · 缓存层 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">ἈΠΟΘΗΚΗ</div><div class="cn">缓存层 · 四层</div></div>
+        <div class="sec-note">键内嵌 userId + narrativeVersion · 危机路径零缓存（§7.0）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <div class="grid g-4">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">Exact</b><span class="badge b-info">TTL 3600s</span>
+          </div>
+          <div class="stat-value" style="font-size:22px;">34<small>% 命中占比</small></div>
+          <div class="kv mt8"><span class="k">entries</span><span class="v">4,212</span></div>
+          <div class="kv"><span class="k">saved tokens</span><span class="v" style="color:var(--olive)">298K</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">Semantic</b><span class="badge b-info">≥ 0.92</span>
+          </div>
+          <div class="stat-value" style="font-size:22px;">21<small>% 命中占比</small></div>
+          <div class="kv mt8"><span class="k">entries</span><span class="v">1,866</span></div>
+          <div class="kv"><span class="k">saved tokens</span><span class="v" style="color:var(--olive)">141K</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">Context</b><span class="badge b-info">TTL 600s</span>
+          </div>
+          <div class="stat-value" style="font-size:22px;">38<small>% 命中占比</small></div>
+          <div class="kv mt8"><span class="k">键维度</span><span class="v">user·sess·nv·model</span></div>
+          <div class="kv"><span class="k">saved tokens</span><span class="v" style="color:var(--olive)">402K</span></div>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font:600 13px var(--f-serif);color:var(--ink)">Provider</b><span class="badge b-ghost">cache_control</span>
+          </div>
+          <div class="stat-value" style="font-size:22px;">7<small>% 命中占比</small></div>
+          <div class="kv mt8"><span class="k">断点</span><span class="v">persona 段末</span></div>
+          <div class="kv"><span class="k">跨用户风险</span><span class="v">无（provider 侧）</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ HUGINN · 出站发动机 ══════════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title"><div class="gk">HUGINN</div><div class="cn">渡鸦出站 · 主动触达</div></div>
+        <div class="sec-note">分布式状态机 + 事务发件箱（v0.3.1 §19）</div>
+      </div>
+      <div class="meander slim"></div>
+
+      <!-- 状态条 -->
+      <div class="grid g-4">
+        <div class="card card-pad">
+          <div class="stat-label">今日配额 · daily_cap</div>
+          <div class="stat-value">1 <small>/ 3</small></div>
+          <div class="bar"><i class="aegean" style="width:33%"></i></div>
+        </div>
+        <div class="card card-pad">
+          <div class="stat-label">危机静默 · crisis_silence</div>
+          <div class="stat-value" style="font-size:20px;margin-top:10px;"><span class="badge b-ok">未激活</span></div>
+          <div class="stat-sub">crisis_silence_until: null · 触发即 +24h（§3.9）</div>
+        </div>
+        <div class="card card-pad">
+          <div class="stat-label">安静时段 · quiet_hours</div>
+          <div class="stat-value" style="font-size:20px;margin-top:10px;">01:00–08:00</div>
+          <div class="stat-sub">Asia/Shanghai · 当前在窗外，允许投递</div>
+        </div>
+        <div class="card card-pad">
+          <div class="stat-label">全局静音 · muted</div>
+          <div class="stat-value" style="font-size:20px;margin-top:10px;"><span class="badge b-ok">false</span></div>
+          <div class="stat-sub">单点判定：OutreachDeliverer · 无绕行通道</div>
+        </div>
+      </div>
+
+      <!-- Outbox 状态机 -->
+      <div class="card card-pad mt14">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">Outbox · 状态机实时水位</b>
+          <span class="sec-note">worker ⟳ 30s · last run 12s ago · 重试退避 60/300/900s</span>
+        </div>
+        <div class="pipe mt14">
+          <div class="pipe-node"><div class="st">reserved</div><div class="n">0</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">generated</div><div class="n">0</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">delivery_pending</div><div class="n">0</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node live"><div class="st">delivered</div><div class="n">1</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node live"><div class="st">intervention_pending</div><div class="n">1</div></div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-node"><div class="st">completed</div><div class="n">14</div></div>
+        </div>
+        <div class="pipe-caption">filtered 7 · failed 0 —— delivered ⇒ eventually intervene_reported（INV-H02）由 outbox worker 兜底</div>
+      </div>
+
+      <!-- 待上报 + 触达历史 -->
+      <div class="grid g-2 mt14">
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">待上报 · intervention pending</b>
+          <table class="tbl mt8">
+            <thead><tr><th>触达</th><th>attempts</th><th>last error</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono">vein-nudge · 08:14</td>
+                <td class="mono">1</td>
+                <td class="mono dim">twig 502 · retry in 60s</td>
+                <td><span class="badge b-warn">retrying</span></td>
+              </tr>
+              <tr>
+                <td class="mono">ritual · 睡前 23:00</td>
+                <td class="mono">0</td>
+                <td class="mono dim">—</td>
+                <td><span class="badge b-info">queued</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="stat-sub mt8">超过 3 次失败进 Dashboard 告警，不阻塞主管线（§19.3.5）</div>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">不变量监控 · invariants</b>
+          <div class="inv mt8" style="grid-template-columns:1fr 1fr;">
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H01</span><span class="tx">sent_today ≤ daily_cap</span></div>
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H02</span><span class="tx">delivered ⇒ eventually reported</span></div>
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H03</span><span class="tx">muted ⇒ no delivery</span></div>
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H04</span><span class="tx">crisis_silence ⇒ no proactive</span></div>
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H05</span><span class="tx">one id ⇒ one logical outreach</span></div>
+            <div class="inv-item"><span class="check">✓</span><span class="id">INV-H06</span><span class="tx">completed ⇒ delivered ∧ reported</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 触达历史 -->
+      <div class="card card-pad mt14">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">触达历史 · outreach log</b>
+          <span class="sec-note">filtered 也持久化（AUDIT-11）</span>
+        </div>
+        <table class="tbl mt8">
+          <thead><tr><th>时间</th><th>类型</th><th>目标</th><th>文案预览</th><th>状态</th><th>filter_reason</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">08:14</td><td><span class="badge b-info">vein-nudge</span></td>
+              <td class="mono">换工作决定</td>
+              <td>「那座岛十二天没有船靠岸了。想聊聊吗？」</td>
+              <td><span class="badge b-ok">delivered</span></td><td class="mono dim">—</td>
+            </tr>
+            <tr>
+              <td class="mono">07:45</td><td><span class="badge b-warn">remention</span></td>
+              <td class="mono">体检报告</td>
+              <td class="dim">—（生成前被拦截）</td>
+              <td><span class="badge b-err">filtered</span></td><td class="mono">min_interval &lt; 180min</td>
+            </tr>
+            <tr>
+              <td class="mono">昨 23:00</td><td><span class="badge b-ghost">ritual</span></td>
+              <td class="mono">睡前仪式</td>
+              <td>「今天有七次夜跑的月亮。晚安。」</td>
+              <td><span class="badge b-ok">completed</span></td><td class="mono dim">—</td>
+            </tr>
+            <tr>
+              <td class="mono">昨 16:20</td><td><span class="badge b-info">vein-nudge</span></td>
+              <td class="mono">学希腊语</td>
+              <td class="dim">—（生成前被拦截）</td>
+              <td><span class="badge b-err">filtered</span></td><td class="mono">无独立证据（§19.2）</td>
+            </tr>
+            <tr>
+              <td class="mono">昨 09:02</td><td><span class="badge b-warn">remention</span></td>
+              <td class="mono">想读的书单</td>
+              <td>「你说过想再提一次《奥德赛》——她读完了。」</td>
+              <td><span class="badge b-ok">completed</span></td><td class="mono dim">invitation REDEEMED</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 配置 + 手动触发 -->
+      <div class="grid g-2 mt14">
+        <div class="card card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font:600 14px var(--f-serif);color:var(--ink)">配置 · huginn.yaml</b>
+            <span class="badge b-ghost">policy_version v1</span>
+          </div>
+          <div class="grid g-3 mt14" style="gap:12px;">
+            <div class="field"><label>daily_cap</label><input value="3"></div>
+            <div class="field"><label>min_interval_minutes</label><input value="180"></div>
+            <div class="field"><label>scan_interval</label><input value="*/15 * * * *"></div>
+            <div class="field"><label>quiet_hours</label><input value="01:00-08:00"></div>
+            <div class="field"><label>crisis_silence_hours</label><input value="24"></div>
+            <div class="field"><label>outbox_worker_interval</label><input value="30s"></div>
+            <div class="field"><label>generation.max_chars</label><input value="280"></div>
+            <div class="field"><label>generation.temperature</label><input value="0.7"></div>
+            <div class="field"><label>outbox.max_retries</label><input value="3"></div>
+          </div>
+          <div class="field mt14"><label>generation.chain</label><input value="gpt-4o → claude-sonnet → gemini-pro"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;" class="mt14">
+            <button class="btn btn-ghost">放弃更改</button>
+            <button class="btn">保存并热加载</button>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <b style="font:600 14px var(--f-serif);color:var(--ink)">手动触发 · manual override</b>
+          <div class="stat-sub" style="margin-top:6px;">手动操作同样过 Final Policy Check 与确认票（§4.6）——手动不等于豁免。</div>
+
+          <div class="mt14" style="display:flex;flex-direction:column;gap:10px;">
+            <button class="btn" id="btnScan">立即扫描一次 · scan now</button>
+            <button class="btn btn-ghost" id="btnManual">手动触达…（需确认票）</button>
+          </div>
+
+          <div id="scanResult" class="hidden mt14">
+            <div class="feed" style="background:var(--panel-2);border:1px solid var(--hairline);border-radius:6px;padding:10px 12px;">
+              <div class="feed-row"><span class="feed-ts">now</span><span class="feed-tag">huginn.scan</span><span class="feed-body">candidates 1 · vein-nudge eligible</span></div>
+              <div class="feed-row"><span class="feed-ts">now</span><span class="feed-tag">policy.check</span><span class="feed-body"><span class="ok">✓</span> quiet_hours 窗外 · muted false · crisis 无</span></div>
+              <div class="feed-row"><span class="feed-ts">now</span><span class="feed-tag">reserve</span><span class="feed-body"><span class="ok">✓</span> 原子抢槽 slot 2/3</span></div>
+            </div>
+          </div>
+
+          <div id="manualPanel" class="hidden mt14">
+            <div class="field"><label>触达类型</label>
+              <select><option>vein-nudge · 换工作决定</option><option>remention · 体检报告</option><option>ritual · 睡前</option></select>
+            </div>
+            <div class="field mt8"><label>文案预览（temperature 0.7 · ≤280 字符）</label>
+              <input value="「那座岛十二天没有船靠岸了。要聊聊吗？」">
+            </div>
+            <div class="feed mt8" style="background:var(--gold-soft);border:1px solid var(--gold);border-radius:6px;padding:10px 12px;">
+              <div class="feed-row"><span class="feed-tag">confirmation</span><span class="feed-body">确认票 <b>HMAC · 绑定 session + 参数哈希 · 5 分钟有效 · 一次性</b>（§4.6）</span></div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;" class="mt14">
+              <button class="btn btn-terra" id="btnCancel">取消</button>
+              <button class="btn" id="btnConfirm">确认投递</button>
+            </div>
+          </div>
+
+          <div id="deliverResult" class="hidden mt14">
+            <div class="feed" style="background:var(--olive-soft);border:1px solid var(--olive);border-radius:6px;padding:10px 12px;">
+              <div class="feed-row"><span class="feed-tag">deliver</span><span class="feed-body"><span class="ok">✓</span> webhook 200 · idem a41c… · outbox 已登记，intervene 由 worker 补报</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>ΠΡΥΤΑΝΕΙΟΝ · mockup v0.1（静态稿，按钮为交互演示）</span>
+      <span>飞出去，回来报告。</span>
+    </div>
+  </main>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  $('btnScan').addEventListener('click', () => {
+    $('scanResult').classList.remove('hidden');
+  });
+  $('btnManual').addEventListener('click', () => {
+    $('manualPanel').classList.remove('hidden');
+    $('deliverResult').classList.add('hidden');
+  });
+  $('btnCancel').addEventListener('click', () => {
+    $('manualPanel').classList.add('hidden');
+  });
+  $('btnConfirm').addEventListener('click', () => {
+    $('manualPanel').classList.add('hidden');
+    $('deliverResult').classList.remove('hidden');
+  });
+</script>
+</body>
+</html>

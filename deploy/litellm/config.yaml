@@ -1,0 +1,51 @@
+# litellm_config.yaml 的 Zeabur 版：管道职责不变（§6.2/§6.3），去 database_url
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+      rpm: 500
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 400
+
+  - model_name: deepseek-chat
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 1000
+
+  - model_name: deepseek-flash
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 1000
+
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-1.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+      rpm: 360
+
+  # FEATURE-02 本地 lane（§20 形态 A）：OLLAMA_API_BASE 指向 tailnet IP
+  - model_name: ollama/qwen3:8b
+    litellm_params:
+      model: ollama_chat/qwen3:8b
+      api_base: os.environ/OLLAMA_API_BASE
+      api_key: ollama
+
+router_settings:
+  routing_strategy: simple-shuffle
+  fallback_strategy:
+    - gpt-4o
+    - claude-sonnet
+    - gemini-pro
+  cooldown_time: 60
+  num_retries: 2
+  timeout: 30
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

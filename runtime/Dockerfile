@@ -7,7 +7,8 @@ COPY tsconfig.json vitest.config.ts ./
 COPY src ./src
 COPY scripts ./scripts
 COPY test ./test
-RUN npm run build && npm prune --omit=dev
+# 保留 dev 依赖：容器内可直接跑 vitest 集成套件（红队用例，§12.2）
+RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
