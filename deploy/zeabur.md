@@ -60,7 +60,8 @@ curl -X POST https://<mnemosyne-domain>/v1/chat/completions \
 
 ## 已知差异（相对 VPS compose 路线）
 
-- 无 Caddy：TLS/域名由 Zeabur 边缘承担；`Caddyfile` 仅 VPS 路线使用。
-- mcp-gateway 服务暂缺（fork 未就位）：compose 中该条目在 Zeabur 上跳过，工具执行回路后续补。
+- 无 Caddy：TLS/域名由 Zeabur 边缘承担；`deploy/compose/Caddyfile` 仅 VPS/compose 路线使用。
+- mcp-gateway：已并入本仓库（自有轻量实现）。Zeabur 上以仓库根为构建上下文、引用
+  `mcp-gateway/Dockerfile` 单独建一个服务即可；server 清单在 `mcp-gateway/config.default.json`。
 - Ollama 本地 lane：专用服务器无 GPU/大内存，形态 A（自有设备经 Tailscale 接入）是唯一可行形态，`OLLAMA_API_BASE` 指向 tailnet IP。
 - 监控（prometheus/grafana profile）：2C4G 不建议常驻；`/metrics` 已暴露，需要时再挂外部 Prometheus 拉取。

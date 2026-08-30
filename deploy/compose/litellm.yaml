@@ -1,4 +1,4 @@
-# litellm_config.yaml — §6.2 + §6.4（Model Gateway = 管道；路由决策在 Mnemosyne TS 侧，§6.3）
+# litellm.yaml（compose 挂载为 /app/config.yaml）— §6.2 + §6.4（Model Gateway = 管道；路由决策在 Mnemosyne TS 侧，§6.3）
 model_list:
   - model_name: gpt-4o
     litellm_params:

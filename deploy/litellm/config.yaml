@@ -1,4 +1,4 @@
-# litellm_config.yaml 的 Zeabur 版：管道职责不变（§6.2/§6.3），去 database_url
+# litellm.yaml（compose 版）的 Zeabur 版：管道职责不变（§6.2/§6.3），去 database_url
 model_list:
   - model_name: gpt-4o
     litellm_params:
