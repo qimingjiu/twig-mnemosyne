@@ -224,9 +224,12 @@ interface LoopState {
   privacyLane: 'cloud' | 'local'
 }
 
-/** 上游 401/403 = 该 provider 未配置凭证/失效：沿链跳过，不中断整条 fallback。 */
+/**
+ * 沿链跳过的上游错误：401/403（凭证缺失或地区被拒）、404（模型组不存在/无可用部署）。
+ * 这些都意味着「这个 provider 现在用不了」，跳到链上下一个候选，而不是中断整条 fallback。
+ */
 function isProviderMisconfig(e: unknown): boolean {
-  return e instanceof LiteLlmError && (e.status === 401 || e.status === 403)
+  return e instanceof LiteLlmError && (e.status === 401 || e.status === 403 || e.status === 404)
 }
 
 /** §3.8 每个候选独立装配（重装配），retryable/凭证缺失错误沿链降级；其余非 retryable 直接映射。 */
