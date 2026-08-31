@@ -19,6 +19,7 @@ export interface BuiltinServer {
 }
 
 import { createCipheriv, randomBytes } from 'node:crypto'
+import { request as httpRequest } from 'node:http'
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) mnemosyne-gateway/0.2'
 
@@ -130,6 +131,8 @@ export interface MusicSong {
   artist: string
   pageUrl: string
   playUrl: string
+  /** 来源平台标识（用于多源搜索区分） */
+  source?: string
 }
 
 interface NeteaseSong {
@@ -181,7 +184,55 @@ async function neteaseSearch(query: string, limit: number): Promise<MusicSong[]>
     artist: (s.artists ?? []).map(a => a.name).join('/') || 'unknown',
     pageUrl: `https://music.163.com/song?id=${s.id}`,
     playUrl: `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`,
+    source: 'netease',
   }))
+}
+
+// ── ccMixter：Creative Commons 音乐社区（公开 API，无需 key）──────────────────
+interface CcMixterSong {
+  upload_id: number
+  upload_name: string
+  user_name: string
+  user_real_name?: string
+  file_page_url: string
+  files?: { file_nicname: string; download_url: string; file_format_info?: { 'media-type': string } }[]
+}
+
+/** ccMixter 用原生 http（node:http request）避免 undici HeadersOverflowError。
+ *  ccMixter 返回大量 Set-Cookie，需把 maxHeaderSize 扩到 256KB。 */
+function httpGetJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(url, { headers: { 'User-Agent': UA }, maxHeaderSize: 256_000 }, (res) => {
+      let raw = ''
+      res.on('data', chunk => { raw += chunk })
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw) as T) } catch (e) { reject(new Error(`ccmixter json parse: ${e}`)) }
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('ccmixter timeout')) })
+    req.setTimeout(timeoutMs)
+    req.end()
+  })
+}
+
+async function ccMixterSearch(query: string, limit: number): Promise<MusicSong[]> {
+  const data = await httpGetJson<CcMixterSong[]>(
+    `http://ccmixter.org/api/query?search=${encodeURIComponent(query)}&limit=${limit}&format=json`,
+  )
+  if (!Array.isArray(data)) throw new Error('ccmixter invalid response')
+  return data.slice(0, limit).map(s => {
+    const mp3File = s.files?.find(f => f.file_nicname === 'mp3' || f.file_format_info?.['media-type'] === 'audio')
+    const downloadUrl = mp3File?.download_url ?? s.files?.[0]?.download_url ?? ''
+    return {
+      id: s.upload_id,
+      title: s.upload_name,
+      artist: s.user_real_name || s.user_name || 'unknown',
+      pageUrl: s.file_page_url,
+      playUrl: downloadUrl,
+      source: 'ccmixter',
+    }
+  })
 }
 
 /** 音乐结果统一信封：Runtime 识别 status:'music' 转 TG 附件（play）或纯文本（search）。 */
@@ -345,12 +396,12 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
     tools: [
       {
         name: 'search',
-        description: 'Search NetEase Cloud Music, returns candidates with page/play URLs',
+        description: 'Search multiple music platforms (NetEase + ccMixter Creative Commons), returns candidates with page/play URLs',
         input_schema: {
           type: 'object',
           properties: {
             query: { type: 'string', description: 'Song / artist keywords' },
-            limit: { type: 'number', description: 'Max results (default 5)' },
+            limit: { type: 'number', description: 'Max results per platform (default 5, cap 10 total)' },
           },
           required: ['query'],
         },
@@ -368,8 +419,32 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
     call: async (tool, args) => {
       const query = strArg(args, 'query')
       if (!query) throw new Error('query required')
-      if (tool === 'search') return musicEnvelope('search', await neteaseSearch(query, Math.min(numArg(args, 'limit', 5), 10)))
-      if (tool === 'play') return musicEnvelope('play', await neteaseSearch(query, 1))
+      if (tool === 'search') {
+        const limit = Math.min(numArg(args, 'limit', 5), 10)
+        // 并行搜索多源：网易云 + ccMixter（Creative Commons）
+        const [netease, ccmixter] = await Promise.allSettled([
+          neteaseSearch(query, limit),
+          ccMixterSearch(query, limit),
+        ])
+        const songs: MusicSong[] = []
+        if (netease.status === 'fulfilled') songs.push(...netease.value)
+        if (ccmixter.status === 'fulfilled') songs.push(...ccmixter.value)
+        if (songs.length === 0) {
+          const errs = [netease, ccmixter]
+            .filter(r => r.status === 'rejected')
+            .map(r => (r as PromiseRejectedResult).reason)
+          throw new Error(`all sources failed: ${errs.map(e => e instanceof Error ? e.message : String(e)).join('; ')}`)
+        }
+        return musicEnvelope('search', songs)
+      }
+      if (tool === 'play') {
+        // play 优先网易云（外链更稳定），ccMixter 兜底
+        try {
+          return musicEnvelope('play', await neteaseSearch(query, 1))
+        } catch {
+          return musicEnvelope('play', await ccMixterSearch(query, 1))
+        }
+      }
       throw new Error(`unknown builtin tool: music/${tool}`)
     },
   }),
