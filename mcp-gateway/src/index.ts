@@ -280,7 +280,7 @@ async function listToolsFor(server: string): Promise<ToolInfo[]> {
 }
 
 async function allTools(): Promise<ToolInfo[]> {
-  const names = [...Object.entries(config.mcpServers).filter(([, c]) => c.enabled !== false).map(([n]) => n), ...dynamicServers.keys()]
+  const names = [...Object.entries(config.mcpServers).filter(([, c]) => c.enabled !== false).map(([n]) => n), ...dynamicServers.keys(), ...Object.keys(BUILTIN_SERVERS)]
   const out: ToolInfo[] = []
   for (const server of names) {
     try {
