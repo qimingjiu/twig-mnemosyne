@@ -8,7 +8,22 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { MODEL_REGISTRY } from '../src/context/modelRegistry.js'
+import { MODEL_REGISTRY, clampTemperature } from '../src/context/modelRegistry.js'
+
+describe('clampTemperature（推理型模型 UnsupportedParams 防御）', () => {
+  it('gpt-5.6 系收敛到 ≤1，无上限模型放行', () => {
+    expect(clampTemperature(2, 'gpt-5.6-luna')).toBe(1)
+    expect(clampTemperature(2, 'gpt-5.6-sol')).toBe(1)
+    expect(clampTemperature(0.7, 'gpt-5.6-luna')).toBe(0.7)
+    expect(clampTemperature(2, 'grok-4.5')).toBe(2)
+    expect(clampTemperature(2, '未登记模型')).toBe(2)
+  })
+  it('推理上限只标在已知 reasoning-active 的登记项上', () => {
+    for (const [id, spec] of Object.entries(MODEL_REGISTRY)) {
+      if (id.startsWith('gpt-5.6')) expect(spec.maxTemperature, id).toBe(1)
+    }
+  })
+})
 
 const here = dirname(fileURLToPath(import.meta.url))
 const CONFIGS = [

@@ -14,7 +14,7 @@ import { env, DEFAULT_CHAIN } from '../config.js'
 import { isCrisis } from '../crisis/lexicon.js'
 import { resolveSession, IdentityError, type UserRow, type ClientRow } from '../identity/service.js'
 import { ContextBuilder, type BuildContext, type BuiltContext, type OutgoingMessage } from '../context/builder.js'
-import { lookupModel, providerOf } from '../context/modelRegistry.js'
+import { lookupModel, providerOf, clampTemperature } from '../context/modelRegistry.js'
 import { buildCacheKey, narrativeVersionOf } from '../cache/keys.js'
 import { exactGet, exactSet } from '../cache/exact.js'
 import { contextCacheKey, contextGet, contextSet } from '../cache/contextCache.js'
@@ -135,12 +135,23 @@ export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Pr
     )
   }
 
-  // 对话事实源先落库（§8.1）：工具轮次/缓存命中路径都以此为准，finalize 不重复写
-  await deps.db.query(
-    `INSERT INTO conversation_messages (session_id, role, content, token_count)
-     VALUES ($1, 'user', $2, $3)`,
-    [session.sessionId, currentMessage, estimateTokens(currentMessage)],
+  // 对话事实源先落库（§8.1）：工具轮次/缓存命中路径都以此为准，finalize 不重复写。
+  // 重试防抖：客户端对失败请求自动重试时（502/超时），同会话同内容 60s 内只落一次——
+  // 否则每次重试都往近期历史多灌一份，下一轮装配出现「同一句 ×N」（2026-09-01 RikkaHub 重试风暴事故）。
+  const retried = await deps.db.query<{ id: string }>(
+    `SELECT id FROM conversation_messages
+      WHERE session_id = $1 AND role = 'user' AND content = $2
+        AND created_at > NOW() - INTERVAL '60 seconds'
+      LIMIT 1`,
+    [session.sessionId, currentMessage],
   )
+  if (retried.rows.length === 0) {
+    await deps.db.query(
+      `INSERT INTO conversation_messages (session_id, role, content, token_count)
+       VALUES ($1, 'user', $2, $3)`,
+      [session.sessionId, currentMessage, estimateTokens(currentMessage)],
+    )
+  }
 
   // §10.2 唯一意图决策点 + §20.2 隐私评分（分类器只读信号）
   const laneRecent = await quickRecent(deps.db, session.sessionId, 4)
@@ -321,7 +332,8 @@ async function executeToolLoop(
   const meta = { rounds: 0, executed: 0, pending: 0 }
 
   for (;;) {
-    const result = await deps.gateway.chat(model, convo, { temperature: st.temperature, tools: openAiTools })
+    // 温度按模型上限收敛：推理型模型 temperature>1 会被上游拒（UnsupportedParamsError，RikkaHub 默认 2 会踩）
+    const result = await deps.gateway.chat(model, convo, { temperature: clampTemperature(st.temperature, model), tools: openAiTools })
     const calls = result.toolCalls ?? []
     if (calls.length === 0 || meta.rounds >= MAX_TOOL_ROUNDS || Date.now() > deadline) {
       if (calls.length > 0 && result.content === '') {

@@ -24,6 +24,20 @@ import { AttemptLimiter } from '../src/identity/service.js'
 
 const CLIENT = { id: 'c-1', user_id: 'u-1', client_type: 'rikkahub' }
 
+describe('extractClientKey 第三方客户端变体', () => {
+  it('标准双通道 / x-api-key / 裸 Authorization / Bearer 非 mn_ 前缀 / 缺失', async () => {
+    const { extractClientKey } = await import('../src/http/shared.js')
+    expect(extractClientKey({ 'x-client-key': 'mn_a' })).toBe('mn_a')
+    expect(extractClientKey({ authorization: 'Bearer mn_b' })).toBe('mn_b')
+    expect(extractClientKey({ authorization: 'Bearer user_xyz' })).toBe('user_xyz')
+    expect(extractClientKey({ authorization: 'mn_raw' })).toBe('mn_raw')
+    expect(extractClientKey({ 'x-api-key': 'mn_c' })).toBe('mn_c')
+    expect(extractClientKey({ 'api-key': 'mn_d' })).toBe('mn_d')
+    expect(extractClientKey({ authorization: 'Bearer ' })).toBeNull()
+    expect(extractClientKey({})).toBeNull()
+  })
+})
+
 function buildApp(): ReturnType<typeof Fastify> {
   const app = Fastify({ logger: false })
   registerRoutes(app, {
