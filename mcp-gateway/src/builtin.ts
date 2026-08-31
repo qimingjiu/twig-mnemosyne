@@ -171,6 +171,8 @@ async function neteaseSearch(query: string, limit: number): Promise<MusicSong[]>
       'Content-Type': 'application/x-www-form-urlencoded',
       Referer: 'https://music.163.com/',
       Cookie: 'os=pc',
+      // 网易 weapi 会检测 X-Real-IP 判断国内 IP；海外机房（Zeabur HK）不加则返回空
+      'X-Real-IP': '223.5.5.5',
     },
     body: neWeapi({ s: query, type: '1', offset: '0', limit: String(limit), csrf_token: '' }),
   })
