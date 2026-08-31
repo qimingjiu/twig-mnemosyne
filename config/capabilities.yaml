@@ -4,7 +4,7 @@
 #
 # lanes：§10.2 单一意图决策点 —— LangGraph Router 决定泳道，本表只按泳道收敛可见能力。
 lanes:
-  chat:     [time, web, music]
+  chat:     [time, web, music, registry]
   coding:   [time, web]
   research: [time, web, research]
   tool:     [time, web, calendar, mail, music, research, registry]
