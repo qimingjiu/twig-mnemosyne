@@ -32,6 +32,7 @@
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `GEMINI_API_KEY` | litellm | 至少一个；决定 fallback 链可用性 |
 | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | mnemosyne | 可选（TTS；缺省静默降级为文字） |
 | `GOOGLE_TTS_API_KEY` | mnemosyne | 可选 |
+| `SEMANTIC_SCHOLAR_API_KEY` | mcp-gateway | 可选（学术搜索；semanticscholar.org/product/api 免费申请。**不配走无鉴权共享池，429 是常态**） |
 
 > keys 可以对话里给我（我只写入 Zeabur 服务环境变量），也可以部署后你自己在控制台填/轮换——**控制台轮换更安全**，推荐后者：我先留空部署，服务起不来时再填。
 

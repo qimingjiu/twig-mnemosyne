@@ -287,6 +287,15 @@ function s2Headers(): Record<string, string> {
   return key ? { 'x-api-key': key } : {}
 }
 
+/** 429 单独说人话：无 key 时走 S2 无鉴权共享池，限流极紧（模型能把原因转述给用户）。 */
+function s2Error(status: number): Error {
+  return new Error(
+    status === 429
+      ? 'semantic-scholar 429 rate limited — unauthenticated shared pool is very tight; apply a free key at semanticscholar.org/product/api and set SEMANTIC_SCHOLAR_API_KEY on the mcp-gateway service'
+      : `semantic-scholar ${status}`,
+  )
+}
+
 interface S2Paper { paperId?: string; title?: string; year?: number; abstract?: string; url?: string; authors?: { name?: string }[] }
 
 function s2PaperLines(p: S2Paper): string[] {
@@ -302,7 +311,7 @@ function s2PaperLines(p: S2Paper): string[] {
 async function s2Search(query: string, limit: number): Promise<string> {
   const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${Math.min(limit, 20)}&fields=${S2_FIELDS}`
   const res = await http(url, { headers: s2Headers() })
-  if (!res.ok) throw new Error(`semantic-scholar ${res.status}`)
+  if (!res.ok) throw s2Error(res.status)
   const data = (await res.json()) as { data?: S2Paper[] }
   const papers = data.data ?? []
   return papers.length === 0 ? '(no results)' : papers.flatMap(s2PaperLines).join('\n')
@@ -310,14 +319,14 @@ async function s2Search(query: string, limit: number): Promise<string> {
 
 async function s2Paper(id: string): Promise<string> {
   const res = await http(`https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(id)}?fields=${S2_FIELDS}`, { headers: s2Headers() })
-  if (!res.ok) throw new Error(`semantic-scholar ${res.status}`)
+  if (!res.ok) throw s2Error(res.status)
   return s2PaperLines((await res.json()) as S2Paper).join('\n')
 }
 
 async function s2AuthorPapers(authorId: string, limit: number): Promise<string> {
   const url = `https://api.semanticscholar.org/graph/v1/author/${encodeURIComponent(authorId)}/papers?limit=${Math.min(limit, 20)}&fields=${S2_FIELDS}`
   const res = await http(url, { headers: s2Headers() })
-  if (!res.ok) throw new Error(`semantic-scholar ${res.status}`)
+  if (!res.ok) throw s2Error(res.status)
   const data = (await res.json()) as { data?: S2Paper[] }
   const papers = data.data ?? []
   return papers.length === 0 ? '(no results)' : papers.flatMap(s2PaperLines).join('\n')
@@ -326,7 +335,7 @@ async function s2AuthorPapers(authorId: string, limit: number): Promise<string> 
 async function s2Related(paperId: string, limit: number): Promise<string> {
   const url = `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(paperId)}/citations?limit=${Math.min(limit, 20)}&fields=${S2_FIELDS}`
   const res = await http(url, { headers: s2Headers() })
-  if (!res.ok) throw new Error(`semantic-scholar ${res.status}`)
+  if (!res.ok) throw s2Error(res.status)
   const data = (await res.json()) as { data?: { citingPaper?: S2Paper }[] }
   const papers = (data.data ?? []).map(d => d.citingPaper ?? {})
   return papers.length === 0 ? '(no results)' : papers.flatMap(s2PaperLines).join('\n')
