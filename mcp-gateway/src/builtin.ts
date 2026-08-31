@@ -261,6 +261,17 @@ const registry = (server: string, def: { tools: Omit<ToolInfo, 'server'>[]; call
   call: def.call,
 })
 
+/**
+ * 追加内置 server（比如由 index.ts 在启动时装配需要访问内部状态的 registry）。
+ * 内建于 builtin.ts 之外，但只为打破「内置 server 只能纯函数」的闭环。
+ */
+export function installBuiltin(name: string, server: { tools: Omit<ToolInfo, 'server'>[]; call: BuiltinServer['call'] }): void {
+  (BUILTIN_SERVERS as Record<string, BuiltinServer>)[name] = {
+    tools: server.tools.map(t => ({ ...t, server: name })),
+    call: server.call,
+  }
+}
+
 export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
   core: registry('core', {
     tools: [

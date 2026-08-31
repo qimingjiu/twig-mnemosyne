@@ -33,6 +33,15 @@ describe('§5 Tool Resolver（capability → MCP tool）', () => {
     expect(tools.find(t => t.fnName === 'calendar_list_events')?.confirmationRequired).toBe(false)
   })
 
+  it('registry capability（pi-mcp 借鉴，AI 自助注册）：tool 泳道挂带确认门', () => {
+    const tools = toolsForLane('tool')
+    const reg = tools.find(t => t.fnName === 'registry_register_server')
+    expect(reg).toMatchObject({ server: 'registry', tool: 'register_server' })
+    expect(reg?.confirmationRequired).toBe(true)
+    expect(tools.find(t => t.fnName === 'registry_list_servers')?.confirmationRequired).toBe(false)
+    // invoke escape hatch 本身确认设为 false、但在下设立调用任意工具时，被服务治理那一层已做拦截的设计贯穿
+  })
+
   it('按 fnName 反查 + OpenAI schema 形状', () => {
     const tools = toolsForLane('chat')
     expect(resolveTool('time_get_current_time', tools)?.server).toBe('core')

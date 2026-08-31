@@ -7,7 +7,7 @@ lanes:
   chat:     [time, web, music]
   coding:   [time, web]
   research: [time, web, research]
-  tool:     [time, web, calendar, mail, music, research]
+  tool:     [time, web, calendar, mail, music, research, registry]
 
 # §5 Tool Resolver：capability provider → mcp-gateway 里的 server 名。
 # 内置 server（core/web/music/scholar）在网关源码里实现，容错性最高；remote 仅 OAuth 型（gmail/calendar）。
@@ -18,6 +18,7 @@ mcp_servers:
   gmail: gmail
   netease_mcp: music
   semantic_scholar: scholar
+  mcp_gatekeeper: registry
 
 cap_domains:
   # §4.7 contested → capability 域映射：论断命中以下关键词时，相关域工具降级为 askUserFirst
@@ -109,3 +110,20 @@ capabilities:
         description: "List papers by a specific author"
       - name: find_related_papers
         description: "Find papers related to a given paper via citation graph"
+
+  registry:
+    description: "MCP server management (AI self-registration of new MCP endpoints; pi-mcp 借鉴)"
+    provider: mcp_gatekeeper
+    confirmation_required: false
+    required_role: user
+    tools:
+      - name: list_servers
+        description: "List all MCP servers known to the gateway (static + dynamic), with status"
+      - name: register_server
+        description: "Register a remote MCP server by explicit URL (the URL must come from user or another channel)"
+        confirmation_required: true
+      - name: unregister_server
+        description: "Remove a dynamically registered server"
+        confirmation_required: true
+      - name: invoke
+        description: "Escape hatch: call any registered server's tool directly through the registry"
