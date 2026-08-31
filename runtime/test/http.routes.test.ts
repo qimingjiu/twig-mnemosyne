@@ -94,6 +94,48 @@ describe('GET /v1/models', () => {
   })
 })
 
+describe('GET /health', () => {
+  it('上报 mcp 网关状态；mcp 不可达不翻转 ok（数据面语义）', async () => {
+    const app = Fastify({ logger: false })
+    registerRoutes(app, {
+      db: { query: async () => ({ rows: [] }) },
+      redis: { ping: async () => 'PONG' },
+      twig: { health: async () => ({ ok: true, auth: true }) },
+      gateway: {}, builder: {}, ingestion: {}, box: {},
+      mcp: { ping: async () => 11 },
+      limiter: new AttemptLimiter(),
+      identityAuth: async () => CLIENT,
+      userOf: async () => ({ id: 'u-1' }),
+    } as unknown as RouteDeps)
+    const res = await app.inject({ method: 'GET', url: '/health' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as { ok: boolean; db: string; mcp: string }
+    expect(body.ok).toBe(true)
+    expect(body.db).toBe('ok')
+    expect(body.mcp).toBe('ok:11')
+    await app.close()
+  })
+
+  it('mcp 不可达 → mcp:unreachable 但 ok 仍由 db/redis/twig 决定', async () => {
+    const app = Fastify({ logger: false })
+    registerRoutes(app, {
+      db: { query: async () => ({ rows: [] }) },
+      redis: { ping: async () => 'PONG' },
+      twig: { health: async () => ({ ok: true, auth: true }) },
+      gateway: {}, builder: {}, ingestion: {}, box: {},
+      mcp: {},
+      limiter: new AttemptLimiter(),
+      identityAuth: async () => CLIENT,
+      userOf: async () => ({ id: 'u-1' }),
+    } as unknown as RouteDeps)
+    const res = await app.inject({ method: 'GET', url: '/health' })
+    const body = res.json() as { ok: boolean; mcp: string }
+    expect(body.ok).toBe(true)
+    expect(body.mcp).toBe('unreachable')
+    await app.close()
+  })
+})
+
 describe('POST /v1/chat/completions 流式', () => {
   const payload = { messages: [{ role: 'user', content: '在吗' }], stream: true }
 

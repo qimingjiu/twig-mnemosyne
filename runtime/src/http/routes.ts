@@ -82,6 +82,12 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
       out.ok = false
       out.twig = 'unreachable'
     }
+    try {
+      // 只报不拦：mcp-gateway 挂了工具废，但不该让编排器重启主服务（ok 语义只含数据面）
+      out.mcp = `ok:${await deps.mcp.ping()}`
+    } catch {
+      out.mcp = 'unreachable'
+    }
     return out
   })
 

@@ -32,10 +32,13 @@ async function http(url: string, init: RequestInit = {}, timeoutMs = 20_000): Pr
 // core：当前时间
 // ─────────────────────────────────────────────────────────────────────────
 function coreTime(args: Record<string, unknown>): string {
-  const tz = typeof args.tz === 'string' && args.tz ? args.tz : 'UTC'
+  // 默认时区：DEFAULT_TIMEZONE 优先，其次容器本地时区（Intl 不传 timeZone 即系统时区）。
+  // 固定 UTC 会把个人部署的时间全报错（2026-09-01「凌晨1點」事故）。
+  const fallbackTz = process.env.DEFAULT_TIMEZONE
+  const tz = typeof args.tz === 'string' && args.tz ? args.tz : fallbackTz
   try {
-    const s = new Intl.DateTimeFormat('en-GB', { timeZone: tz, dateStyle: 'full', timeStyle: 'long' }).format(new Date())
-    return `${s} (${tz})`
+    const s = new Intl.DateTimeFormat('en-GB', { timeZone: tz || undefined, dateStyle: 'full', timeStyle: 'long' }).format(new Date())
+    return `${s} (${tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'system-local'})`
   } catch {
     return `invalid timezone: ${tz}`
   }
@@ -363,7 +366,7 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
     tools: [
       {
         name: 'get_current_time',
-        description: "Returns the current time and date, optionally in a IANA timezone (e.g. Asia/Shanghai)",
+        description: "Returns the current time and date, optionally in a IANA timezone (e.g. Asia/Shanghai). Omit tz to get the deployment's local time",
         input_schema: {
           type: 'object',
           properties: { tz: { type: 'string', description: 'IANA timezone, defaults to UTC' } },

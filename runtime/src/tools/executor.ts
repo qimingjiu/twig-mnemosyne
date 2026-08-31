@@ -25,6 +25,14 @@ export class McpGatewayClient {
     return data.tools ?? []
   }
 
+  /** 短超时探活（/health 与启动自检用；listTools 的 15s 超时太拖）。返回工具数。 */
+  async ping(): Promise<number> {
+    const res = await fetch(`${this.baseUrl}/tools`, { signal: AbortSignal.timeout(3_000) })
+    if (!res.ok) throw new McpGatewayError(`tools ${res.status}`)
+    const data = (await res.json()) as { tools?: GatewayToolInfo[] }
+    return data.tools?.length ?? 0
+  }
+
   async call(server: string, tool: string, args: Record<string, unknown>): Promise<string> {
     const res = await fetch(`${this.baseUrl}/call`, {
       method: 'POST',

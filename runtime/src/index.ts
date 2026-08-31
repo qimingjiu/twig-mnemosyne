@@ -88,6 +88,18 @@ async function main(): Promise<void> {
     userOf: id => getUserById(pool, id),
   })
 
+  // MCP 管道自检：接线错误（mcp-gateway 服务没建 / MCP_GATEWAY_URL 没配）此前只在工具调用时
+  // 静默失败、模型拿不到结果就开始瞎编（2026-09-01「自己查時間」事故）；启动时打真探针暴露断点。
+  try {
+    const n = await mcp.ping()
+    app.log.info(`[mcp] gateway ok: ${n} tools (${env.MCP_GATEWAY_URL})`)
+  } catch (e) {
+    app.log.warn(
+      `[mcp] gateway unreachable at ${env.MCP_GATEWAY_URL} (${e instanceof Error ? e.message : String(e)}) — ` +
+      '工具将不可用。检查：① mcp-gateway 服务是否已创建 ② mnemosyne 的 MCP_GATEWAY_URL 是否指向其私有地址',
+    )
+  }
+
   // §1 传输层：Telegram 长轮询（token 缺省时自动关闭）
   startTelegramPolling({
     db: pool, redis, twig, gateway, builder, ingestion, box, mcp,

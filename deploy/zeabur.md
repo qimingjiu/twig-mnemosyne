@@ -12,10 +12,12 @@
 | 3 | `twig-memory` | GitHub `qimingjiu/twig-memory` @ main（v0.3.1 补丁已推送，Zeabur repo id `1327399926`） | 7300 | ❌ 仅私有网络 |
 | 4 | `litellm` | GitHub 本仓库 + `deploy/litellm/Dockerfile`（配置烤入镜像） | 4000 | ❌ 仅私有网络 |
 | 5 | `mnemosyne` | GitHub 本仓库 + `deploy/mnemosyne.Dockerfile`（repo 根上下文，config/ 与 migrations 打入镜像） | 8000 | ✅ 唯一暴露公网的服务（AI client 入口） |
+| 6 | `mcp-gateway` | GitHub 本仓库 + `mcp-gateway/Dockerfile`（repo 根上下文） | 3000 | ❌ 仅私有网络 |
 
-> 网络原则（§13.3 的 Zeabur 等价物）：只有 mnemosyne 绑定公网域名；postgres/redis/twig/litellm 一律私有地址。Twig 的全局令牌仍必须设置——私有网络不是免除认证的理由（T8.10 启动断言照常生效）。
+> 网络原则（§13.3 的 Zeabur 等价物）：只有 mnemosyne 绑定公网域名；postgres/redis/twig/litellm/mcp-gateway 一律私有地址。Twig 的全局令牌仍必须设置——私有网络不是免除认证的理由（T8.10 启动断言照常生效）。
 > Caddy 不需要：Zeabur 边缘自带 TLS/域名；限流职责在应用层（per client_key + per IP）。
 > 2C4G 常驻内存 ≈2.5–3.2GB（§13.1.1），专用服务器包月内，无按容器计费。
+> ⚠️ mcp-gateway 是**必建服务**：漏建或漏配 `MCP_GATEWAY_URL` 时，mnemosyne 默认连 `127.0.0.1:3000`（容器内无此服务），工具全废且**静默失败**——模型收不到工具结果就开始编造（2026-09-01「自己查時間报凌晨1點」事故）。用 `/health` 的 `mcp` 字段验证。
 
 ## 环境变量分工
 
@@ -38,14 +40,16 @@
 - `postgres`：`POSTGRES_USER=mnemosyne`、`POSTGRES_PASSWORD=${DB_PASSWORD}`、`POSTGRES_DB=mnemosyne`
 - `twig-memory`：`PORT=7300`、`MUNINN_AUTH_TOKEN`、`MUNINN_DATA_DIR=/data`、`MUNINN_TZ=Asia/Shanghai`、`KIMI_API_KEY`
 - `litellm`：`LITELLM_MASTER_KEY`、各 provider key、`OLLAMA_API_BASE` 可不设（本地 lane 形态 A 时指向 tailnet）
-- `mnemosyne`：`DATABASE_URL`、`REDIS_URL`、`TWIG_URL`、`MUNINN_AUTH_TOKEN`、`LITELLM_URL`、`LITELLM_API_KEY`、`ENCRYPTION_KEY`、`CONFIRM_SECRET`、`BROKER_INTERNAL_TOKEN`、`BOOTSTRAP_TOKEN`、`ADMIN_TOKEN`、`NODE_ENV=production`
+- `mnemosyne`：`DATABASE_URL`、`REDIS_URL`、`TWIG_URL`、`MUNINN_AUTH_TOKEN`、`LITELLM_URL`、`LITELLM_API_KEY`、`ENCRYPTION_KEY`、`CONFIRM_SECRET`、`BROKER_INTERNAL_TOKEN`、`BOOTSTRAP_TOKEN`、`ADMIN_TOKEN`、`MCP_GATEWAY_URL`（指向第 6 服务私有地址，形如 `http://mcp-gateway.zeabur.internal:3000`）、`NODE_ENV=production`
   - 各 URL 用 Zeabur 控制台显示的**私有地址**（形如 `xxx.zeabur.internal`），不要用公网域名回环。
+- `mcp-gateway`：无必需变量；`DEFAULT_TIMEZONE=Asia/Shanghai` 可选（`get_current_time` 缺省 tz 时的默认时区，不设则用容器本地时间）
 - 数据持久化：postgres / redis / twig 三服务各挂一块持久卷（twig 挂 `/data`——叙事数据在这里，**必须先买卷再启动**，见 §13.6 备份策略；备份 runbook 的 pg_dump/tar 逻辑不变，宿主机换成 Zeabur 卷快照 + 定期 dump）。
 
 ## 部署后验收
 
 ```bash
 # 1. 健康链（mnemosyne 生产模式自检 twig auth=true，断言失败即拒启）
+#    mcp 字段必须为 ok:<N>（N=工具数）；unreachable = 第 6 服务没建或 MCP_GATEWAY_URL 没配
 curl https://<mnemosyne-domain>/health
 # 2. bootstrap 首个用户（BOOTSTRAP_TOKEN 一次性；Zeabur 控制台 → mnemosyne → Terminal）
 node dist/scripts/bootstrap.js --email <email> --name 杳晦 --master-key <口令> --token $BOOTSTRAP_TOKEN
@@ -61,7 +65,8 @@ curl -X POST https://<mnemosyne-domain>/v1/chat/completions \
 ## 已知差异（相对 VPS compose 路线）
 
 - 无 Caddy：TLS/域名由 Zeabur 边缘承担；`deploy/compose/Caddyfile` 仅 VPS/compose 路线使用。
-- mcp-gateway：已并入本仓库（自有轻量实现）。Zeabur 上以仓库根为构建上下文、引用
-  `mcp-gateway/Dockerfile` 单独建一个服务即可；server 清单在 `mcp-gateway/config.default.json`。
+- mcp-gateway：已并入本仓库（自有轻量实现），即服务清单第 6 行。Zeabur 上以仓库根为构建上下文、
+  引用 `mcp-gateway/Dockerfile` 建服务；server 清单在 `mcp-gateway/config.default.json`。
+  建完必须把 `MCP_GATEWAY_URL` 写进 mnemosyne 环境变量（私有地址 :3000），否则工具静默全废。
 - Ollama 本地 lane：专用服务器无 GPU/大内存，形态 A（自有设备经 Tailscale 接入）是唯一可行形态，`OLLAMA_API_BASE` 指向 tailnet IP。
 - 监控（prometheus/grafana profile）：2C4G 不建议常驻；`/metrics` 已暴露，需要时再挂外部 Prometheus 拉取。
