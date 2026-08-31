@@ -27,6 +27,20 @@ export const MODEL_REGISTRY: Record<string, ModelSpec> = {
   'gpt-5.6-luna': { contextWindow: 128000, maxOutput: 16384, lane: 'cloud', provider: 'opencode' },
   // 硅基流动 · GLM-5.2
   'glm-5.2': { contextWindow: 128000, maxOutput: 8192, lane: 'cloud', provider: 'siliconflow' },
+  // ── CommandCode 中转（2026-09-01 批量接入，套餐内模型；名称与窗口经账号 /models + 实测核对，
+  //    文档 v2026-08-26 已过时——GLM-5.3 系列文档漏了）──
+  // Mnemosyne 别名 ≠ 上游名：litellm 侧逐字透传 CommandCode API 模型名（deploy/litellm/config.yaml）。
+  'gpt-5.6-sol': { contextWindow: 1050000, maxOutput: 16384, lane: 'cloud', provider: 'commandcode' },
+  'grok-4.5': { contextWindow: 500000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'grok-4.6': { contextWindow: 500000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'kimi-k2.5': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'glm-5.2-fast': { contextWindow: 1000000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  // GLM-5.3 双条目：上游 org 前缀不同（zai-org vs z-ai），逐字勿混
+  'glm-5.3': { contextWindow: 1000000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
+  'glm-5.3-flash': { contextWindow: 1048576, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
 }
 
 export function lookupModel(name: string): ModelSpec | undefined {

@@ -31,6 +31,98 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
       rpm: 360
 
+  # ── OpenAI 兼容中转（同一把 key 可挂多个模型条目；与 deploy/litellm/config.yaml 保持同步）──
+
+  # CommandCode 中转 · Gemini 3.7 Flash（套餐内）
+  - model_name: gemini-3.7-flash
+    litellm_params:
+      model: openai/google/gemini-3.7-flash
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  # CommandCode 中转 · 2026-09-01 批量接入（API 模型名逐字对照 CommandCode 文档，勿改大小写/分隔符）
+  - model_name: gpt-5.6-sol
+    litellm_params:
+      model: openai/gpt-5.6-sol
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: grok-4.5
+    litellm_params:
+      model: openai/xai/grok-4.5
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: grok-4.6
+    litellm_params:
+      model: openai/xai/grok-4.6
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: kimi-k2.7-code-highspeed
+    litellm_params:
+      model: openai/moonshotai/Kimi-K2.7-Code-Highspeed
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: kimi-k2.7-code
+    litellm_params:
+      model: openai/moonshotai/Kimi-K2.7-Code
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: kimi-k2.6
+    litellm_params:
+      model: openai/moonshotai/Kimi-K2.6
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: kimi-k2.5
+    litellm_params:
+      model: openai/moonshotai/Kimi-K2.5
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: glm-5.2-fast
+    litellm_params:
+      model: openai/zai-org/GLM-5.2-Fast
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  # GLM-5.3 双条目：上游 org 前缀不同（zai-org vs z-ai），逐字勿混；文档 v0826 漏了 5.3，经账号 /models 核实
+  - model_name: glm-5.3
+    litellm_params:
+      model: openai/zai-org/GLM-5.3
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  - model_name: glm-5.3-flash
+    litellm_params:
+      model: openai/z-ai/glm-5.3-flash
+      api_base: https://api.commandcode.ai/provider/v1
+      api_key: os.environ/COMMANDCODE_API_KEY
+
+  # OpenCode Zen · Kimi K3
+  - model_name: kimi-k3
+    litellm_params:
+      model: openai/kimi-k3
+      api_base: https://opencode.ai/zen/go/v1
+      api_key: os.environ/OPENCODE_API_KEY
+
+  # OpenCode Zen · GPT 5.6 Luna
+  - model_name: gpt-5.6-luna
+    litellm_params:
+      model: openai/gpt-5.6-luna
+      api_base: https://opencode.ai/zen/go/v1
+      api_key: os.environ/OPENCODE_API_KEY
+
+  # 硅基流动 · GLM-5.2
+  - model_name: glm-5.2
+    litellm_params:
+      model: openai/zai-org/GLM-5.2
+      api_base: https://api.siliconflow.cn/v1
+      api_key: os.environ/SILICONFLOW_API_KEY
+
   # FEATURE-02 本地 lane（§20）：形态 A 时 OLLAMA_API_BASE 指向 tailnet IP
   - model_name: ollama/qwen3:8b
     litellm_params:
