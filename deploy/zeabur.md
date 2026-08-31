@@ -32,7 +32,7 @@
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `GEMINI_API_KEY` | litellm | 至少一个；决定 fallback 链可用性 |
 | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | mnemosyne | 可选（TTS；缺省静默降级为文字） |
 | `GOOGLE_TTS_API_KEY` | mnemosyne | 可选 |
-| `SEMANTIC_SCHOLAR_API_KEY` | mcp-gateway | 可选（学术搜索；semanticscholar.org/product/api 免费申请。**不配走无鉴权共享池，429 是常态**） |
+| `SEMANTIC_SCHOLAR_API_KEY` | mcp-gateway | 可选（学术搜索主源；semanticscholar.org/product/api 免费申请，无学术邮箱被拦可不申请——**不配自动走 OpenAlex 免 key 兜底**） |
 
 > keys 可以对话里给我（我只写入 Zeabur 服务环境变量），也可以部署后你自己在控制台填/轮换——**控制台轮换更安全**，推荐后者：我先留空部署，服务起不来时再填。
 
@@ -43,7 +43,7 @@
 - `litellm`：`LITELLM_MASTER_KEY`、各 provider key、`OLLAMA_API_BASE` 可不设（本地 lane 形态 A 时指向 tailnet）
 - `mnemosyne`：`DATABASE_URL`、`REDIS_URL`、`TWIG_URL`、`MUNINN_AUTH_TOKEN`、`LITELLM_URL`、`LITELLM_API_KEY`、`ENCRYPTION_KEY`、`CONFIRM_SECRET`、`BROKER_INTERNAL_TOKEN`、`BOOTSTRAP_TOKEN`、`ADMIN_TOKEN`、`MCP_GATEWAY_URL`（指向第 6 服务私有地址，形如 `http://mcp-gateway.zeabur.internal:3000`）、`NODE_ENV=production`
   - 各 URL 用 Zeabur 控制台显示的**私有地址**（形如 `xxx.zeabur.internal`），不要用公网域名回环。
-- `mcp-gateway`：无必需变量；`DEFAULT_TIMEZONE=Asia/Shanghai` 可选（`get_current_time` 缺省 tz 时的默认时区，不设则用容器本地时间）
+- `mcp-gateway`：无必需变量；`DEFAULT_TIMEZONE=Asia/Shanghai` 可选（`get_current_time` 缺省 tz 时的默认时区，不设则用容器本地时间）；`OPENALEX_EMAIL` 可选（学术兜底源 polite pool，提升限额）
 - 数据持久化：postgres / redis / twig 三服务各挂一块持久卷（twig 挂 `/data`——叙事数据在这里，**必须先买卷再启动**，见 §13.6 备份策略；备份 runbook 的 pg_dump/tar 逻辑不变，宿主机换成 Zeabur 卷快照 + 定期 dump）。
 
 ## 部署后验收

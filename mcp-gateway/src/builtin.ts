@@ -341,6 +341,90 @@ async function s2Related(paperId: string, limit: number): Promise<string> {
   return papers.length === 0 ? '(no results)' : papers.flatMap(s2PaperLines).join('\n')
 }
 
+// ── OpenAlex 兜底源：免 key 学术库。S2 无 key 的共享池 429 是常态，申请 key 又常被
+//    「学术邮箱」拦住——OpenAlex 完全开放（polite pool 留个 mailto 即可），兜底后零配置可用。
+const OA_SELECT = 'id,display_name,publication_year,doi,authorships,abstract_inverted_index'
+
+interface OAWork {
+  id?: string
+  display_name?: string
+  publication_year?: number
+  doi?: string
+  authorships?: { author?: { display_name?: string } }[]
+  abstract_inverted_index?: Record<string, number[]> | null
+}
+
+/** OpenAlex 摘要是倒排索引（词 → 位置数组），重建为原文。 */
+function oaAbstract(inv: OAWork['abstract_inverted_index']): string {
+  if (!inv) return ''
+  const words: string[] = []
+  for (const [w, pos] of Object.entries(inv)) for (const p of pos) words[p] = w
+  return words.filter(Boolean).join(' ').slice(0, 400)
+}
+
+function oaLines(w: OAWork): string[] {
+  const authors = (w.authorships ?? []).map(a => a.author?.display_name ?? '').filter(Boolean).join(', ') || 'unknown'
+  return [
+    `• ${w.display_name ?? '(untitled)'}${w.publication_year ? ` (${w.publication_year})` : ''}`,
+    `  authors: ${authors}`,
+    w.id ? `  openalex_id: ${w.id.replace('https://openalex.org/', '')}` : '',
+    w.doi ? `  doi: ${w.doi}` : '',
+    ...(w.abstract_inverted_index ? [`  abstract: ${oaAbstract(w.abstract_inverted_index)}`] : []),
+  ].filter(Boolean)
+}
+
+/** polite pool：留邮箱提升限额，可选环境变量。 */
+function oaMailto(): string {
+  const e = process.env.OPENALEX_EMAIL
+  return e ? `&mailto=${encodeURIComponent(e)}` : ''
+}
+
+function oaBareId(id: string): string {
+  return id.replace(/^https:\/\/openalex\.org\//, '')
+}
+
+async function oaList(url: string): Promise<string> {
+  const res = await http(url)
+  if (!res.ok) throw new Error(`openalex ${res.status}`)
+  const data = (await res.json()) as { results?: OAWork[] }
+  const papers = data.results ?? []
+  return papers.length === 0 ? '(no results)' : papers.flatMap(oaLines).join('\n')
+}
+
+async function oaSearch(query: string, limit: number): Promise<string> {
+  return oaList(`https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${Math.min(limit, 20)}&select=${OA_SELECT}${oaMailto()}`)
+}
+
+async function oaWork(id: string): Promise<string> {
+  const clean = oaBareId(id)
+  const key = /^W\d+$/.test(clean) ? clean : /^10\./.test(clean) ? `doi:${clean}` : clean
+  const res = await http(`https://api.openalex.org/works/${encodeURIComponent(key)}?select=${OA_SELECT}${oaMailto()}`)
+  if (!res.ok) throw new Error(`openalex ${res.status}`)
+  return oaLines((await res.json()) as OAWork).join('\n')
+}
+
+async function oaAuthorPapers(authorId: string, limit: number): Promise<string> {
+  return oaList(`https://api.openalex.org/works?filter=author.id:${encodeURIComponent(oaBareId(authorId))}&per-page=${Math.min(limit, 20)}&select=${OA_SELECT}${oaMailto()}`)
+}
+
+async function oaRelated(paperId: string, limit: number): Promise<string> {
+  return oaList(`https://api.openalex.org/works?filter=referenced_works:${encodeURIComponent(oaBareId(paperId))}&per-page=${Math.min(limit, 20)}&select=${OA_SELECT}${oaMailto()}`)
+}
+
+/** S2 为主、OpenAlex 兜底；未配 S2 key 直接走 OpenAlex（免 key，无 429 之苦）。 */
+async function scholar(primary: () => Promise<string>, fallback: () => Promise<string>): Promise<string> {
+  if (!process.env.SEMANTIC_SCHOLAR_API_KEY) return fallback()
+  try {
+    return await primary()
+  } catch (e) {
+    try {
+      return await fallback()
+    } catch {
+      throw e
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // 内置注册表：server 名 → 工具定义 + 执行体
 // ─────────────────────────────────────────────────────────────────────────
@@ -553,22 +637,25 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
       if (tool === 'search_papers') {
         const query = strArg(args, 'query')
         if (!query) throw new Error('query required')
-        return await s2Search(query, numArg(args, 'limit', 5))
+        const limit = numArg(args, 'limit', 5)
+        return await scholar(() => s2Search(query, limit), () => oaSearch(query, limit))
       }
       if (tool === 'get_paper_details') {
         const id = strArg(args, 'paper_id')
         if (!id) throw new Error('paper_id required')
-        return await s2Paper(id)
+        return await scholar(() => s2Paper(id), () => oaWork(id))
       }
       if (tool === 'get_author_papers') {
         const id = strArg(args, 'author_id')
         if (!id) throw new Error('author_id required')
-        return await s2AuthorPapers(id, numArg(args, 'limit', 5))
+        const limit = numArg(args, 'limit', 5)
+        return await scholar(() => s2AuthorPapers(id, limit), () => oaAuthorPapers(id, limit))
       }
       if (tool === 'find_related_papers') {
         const id = strArg(args, 'paper_id')
         if (!id) throw new Error('paper_id required')
-        return await s2Related(id, numArg(args, 'limit', 5))
+        const limit = numArg(args, 'limit', 5)
+        return await scholar(() => s2Related(id, limit), () => oaRelated(id, limit))
       }
       throw new Error(`unknown builtin tool: scholar/${tool}`)
     },
