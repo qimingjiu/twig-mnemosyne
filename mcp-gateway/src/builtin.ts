@@ -80,6 +80,7 @@ async function ddgSearch(query: string, maxResults: number): Promise<WebHit[]> {
     hits.push({ title, url, snippet: snip ? stripHtml(snip) : '' })
     if (hits.length >= maxResults) break
   }
+  if (hits.length === 0) throw new Error('ddg returned empty results (soft block)')
   return hits
 }
 
