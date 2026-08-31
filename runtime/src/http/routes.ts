@@ -1,8 +1,8 @@
 /**
- * HTTP 装配：/health、/metrics、/v1/identity/*、/v1/chat/completions、/v1/admin/*、/internal/broker/token。
+ * HTTP 装配：/health、/metrics、/v1/identity/*、/v1/models、/v1/chat/completions、/v1/admin/*、/internal/broker/token。
  * 限流（§13.4 职责声明）：应用层 per client_key 固定窗 + per IP，Redis 计数；Redis 异常 fail-open。
  */
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { env } from '../config.js'
 import { IdentityError, AttemptLimiter, resolveSession, registerClient, rotateClientKey, authClient, getUserById, type ClientRow, type UserRow } from '../identity/service.js'
@@ -11,6 +11,7 @@ import { renderMetrics } from '../observability/metrics.js'
 import { registerBrokerRoute } from '../broker/tokenBroker.js'
 import { redactText } from '../observability/redact.js'
 import { loadCapabilities, getForLane } from '../router/capabilities.js'
+import { MODEL_REGISTRY } from '../context/modelRegistry.js'
 import { extractClientKey, rateLimit } from './shared.js'
 import { registerWebRoutes } from './webRoutes.js'
 
@@ -21,6 +22,9 @@ export interface RouteDeps extends ChatDeps {
 }
 
 const SIGNATURE_64HEX = /^[a-f0-9]{64}$/
+
+// /v1/models 的 created 字段：注册表无创建时间语义、客户端不读；固定值保证响应稳定、测试可断言
+const MODEL_LIST_CREATED = 1788048000
 
 const RegisterSchema = z.object({
   user_eternal_id: z.string().regex(/^[a-f0-9]{64}$/),
@@ -146,6 +150,26 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     return { client_key: newKey } // 仅此一次返回明文
   })
 
+  // —— models（OpenAI 兼容模型列表；事实源 §6.4 MODEL_REGISTRY，RikkaHub 等 OpenAI 客户端连接探测用）——
+  app.get('/v1/models', async (req, reply) => {
+    const clientKey = extractClientKey(req.headers as Record<string, unknown>)
+    if (!clientKey) return reply.code(401).send({ error: { message: 'X-Client-Key required', type: 'missing_key' } })
+    const client = await deps.identityAuth(clientKey)
+    if (!client) return reply.code(401).send({ error: { message: 'invalid key', type: 'invalid_key' } })
+    return {
+      object: 'list',
+      data: Object.entries(MODEL_REGISTRY).map(([id, spec]) => ({
+        id,
+        object: 'model',
+        created: MODEL_LIST_CREATED,
+        owned_by: spec.provider,
+        lane: spec.lane, // Mnemosyne 扩展字段，标准 OpenAI 客户端忽略
+        context_window: spec.contextWindow,
+        max_output_tokens: spec.maxOutput,
+      })),
+    }
+  })
+
   // —— chat（OpenAI-compatible，§14.2）——
   app.post('/v1/chat/completions', async (req, reply) => {
     const clientKey = extractClientKey(req.headers as Record<string, unknown>)
@@ -158,9 +182,6 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (!client) return reply.code(401).send({ error: { message: 'invalid key', type: 'invalid_key' } })
     const parsed = ChatBodySchema.safeParse(req.body)
     if (!parsed.success) return reply.code(400).send({ error: { message: 'bad_request', detail: parsed.error.message } })
-    if (parsed.data.stream) {
-      return reply.code(501).send({ error: { message: 'streaming not implemented in scaffold', type: 'streaming_not_implemented' } })
-    }
     const user = await deps.userOf(client.user_id)
     if (!user) return reply.code(401).send({ error: { message: 'invalid key', type: 'invalid_key' } })
 
@@ -174,6 +195,12 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
       eternalSessionId: (req.headers['x-eternal-session-id'] as string | undefined) || undefined,
       sessionType: (req.headers['x-session-type'] as string | undefined) || undefined,
     })
+    // 假流式（§14.2 现状：管线为同步补全）：200 结果按 OpenAI chunk 协议切片重放，
+    // 兼容默认 stream=true 的客户端（RikkaHub 等）；错误路径仍走 JSON 错误通道
+    if (parsed.data.stream) {
+      if (outcome.status !== 200) return reply.code(outcome.status).send(outcome.payload)
+      return renderStreamCompletion(reply, outcome.payload)
+    }
     return reply.code(outcome.status).send(outcome.payload)
   })
 
@@ -248,6 +275,26 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     req.log.error({ err: err instanceof Error ? err.message : String(err) }, 'unhandled')
     return reply.code(500).send({ error: { message: 'internal error', type: 'internal_error' } })
   })
+}
+
+/** 200 补全按 OpenAI chunk 协议重放（payload 由 pipeline 保证为 chat.completion 形状）。 */
+function renderStreamCompletion(reply: FastifyReply, payload: Record<string, unknown>): void {
+  const choices = payload.choices as Array<{ message: { content: unknown } }> | undefined
+  const content = typeof choices?.[0]?.message?.content === 'string' ? choices[0].message.content : ''
+  const base = { id: payload.id, object: 'chat.completion.chunk', created: payload.created, model: payload.model }
+  reply.hijack()
+  // x-accel-buffering：禁 Zeabur/nginx 边缘对 SSE 的响应缓冲
+  reply.raw.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' })
+  const send = (chunk: Record<string, unknown>): void => {
+    reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
+  }
+  send({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })
+  for (const piece of content.match(/[\s\S]{1,120}/g) ?? []) {
+    send({ ...base, choices: [{ index: 0, delta: { content: piece }, finish_reason: null }] })
+  }
+  send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
+  if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
+  reply.raw.end('data: [DONE]\n\n')
 }
 
 // authClient / getUserById 由 index.ts 组装为 identityAuth / userOf 注入
