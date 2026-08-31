@@ -26,7 +26,7 @@ import { recordUsage } from '../usage/engine.js'
 import type { MemoryIngestionPipeline } from '../memory/ingestion.js'
 import type { TwigAdapter } from '../memory/TwigAdapter.js'
 import type { ModelGateway } from '../gateways/litellm.js'
-import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs } from '../tools/resolver.js'
+import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs, enrichSchemas } from '../tools/resolver.js'
 import type { McpGatewayClient } from '../tools/executor.js'
 import { contestedGate } from '../tools/contested.js'
 import { issueTicket, verifyTicket } from '../router/confirmation.js'
@@ -60,6 +60,15 @@ export interface ChatRequest {
 export interface ChatOutcome {
   status: number
   payload: Record<string, unknown>
+}
+
+/** 媒体附件（当前仅音乐）：TG/web 客户端拿它发 sendAudio 或带链接预览的卡片（§5.5）。 */
+export interface Attachment {
+  kind: 'music'
+  title: string
+  artist: string
+  page_url: string
+  play_url: string
 }
 
 // §20.3：本地 lane 的 fallback chain 只含本地模型，绝不允许「降级」到云端
@@ -238,6 +247,8 @@ interface LoopState {
   userPersisted?: boolean
   /** 工具回路统计（§5） */
   toolMeta?: { rounds: number; executed: number; pending: number }
+  /** 媒体附件（音乐 play 工具结果收集；TG sendAudio/web 卡片用） */
+  attachments?: Attachment[]
 }
 
 /** §10.5：工具回路硬上限 */
@@ -261,6 +272,23 @@ async function safeToolCall(deps: ChatDeps, server: string, tool: string, args: 
   }
 }
 
+/** 音乐工具成功结果的统一信封（与 mcp-gateway builtin music 对齐）；解析失败返回 undefined 当普通文本。 */
+export function musicEnvelope(resultText: string): { songs: Attachment[] } | undefined {
+  let data: { status?: string; action?: string; songs?: unknown } | null
+  try { data = JSON.parse(resultText) as { status?: string; songs?: unknown } } catch { return undefined }
+  if (data?.status !== 'music' || !Array.isArray(data.songs)) return undefined
+  const songs = (data.songs as { title?: string; artist?: string; pageUrl?: string; playUrl?: string }[])
+    .filter(s => s.title && s.pageUrl)
+    .map(s => ({
+      kind: 'music' as const,
+      title: s.title ?? '',
+      artist: s.artist ?? '',
+      page_url: s.pageUrl ?? '',
+      play_url: s.playUrl ?? '',
+    }))
+  return { songs }
+}
+
 /**
  * §5 工具执行回路：模型发起 tool_calls → contested 检查（§4.7）→ 确认票（§4.6）→ MCP 执行 →
  * 结果回灌 → 模型继续，直至给出最终回答或触及轮次/时限上限。
@@ -277,7 +305,13 @@ async function executeToolLoop(
 ): Promise<ToolLoopOutcome> {
   const spec = lookupModel(model)
   // §20：local lane 降级纯对话，不暴露工具 schema
-  const laneTools = !spec || spec.lane === 'local' || st.privacyLane === 'local' ? [] : toolsForLane(st.lane)
+  let laneTools = !spec || spec.lane === 'local' || st.privacyLane === 'local' ? [] : toolsForLane(st.lane)
+  // §5.4：用网关真实 input_schema 喂模型；网关不可达时保留占位空 schema（调用端报 unknown-server，不静默）
+  try {
+    laneTools = enrichSchemas(laneTools, await deps.mcp.listTools())
+  } catch (e) {
+    console.error('[tools] mcp-gateway unreachable; schemas stay empty:', e instanceof Error ? e.message : e)
+  }
   const openAiTools = toOpenAiTools(laneTools)
   const currentMessage = extractText(req.messages.at(-1)?.content)
   const cancelled = /取消/.test(currentMessage)
@@ -340,6 +374,13 @@ async function executeToolLoop(
           if (needConfirm && redeemed) await deps.redis.del(pendingKey)
           meta.executed++
           resultText = await safeToolCall(deps, rt.server, rt.tool, args)
+          // 音乐结果 → 附件收集（§5.5；仅 play 出结果集，search 只是候选列表）
+          if (rt.capability === 'music' && resultText.includes('"music"')) {
+            const env = musicEnvelope(resultText)
+            if (env && rt.tool === 'play' && rt.server === 'music') {
+              st.attachments = env.songs.slice(0, 1)
+            }
+          }
         }
       }
 
@@ -557,6 +598,7 @@ async function finalize(
         cache_write_tokens: 0,
       },
       ...(audio ? { audio } : {}),
+      ...(st.attachments && st.attachments.length > 0 ? { attachments: st.attachments } : {}),
       mnemosyne: {
         cache_hit_type: st.cacheHitType,
         narrative_version: st.built?.narrativeVersion ?? 'unknown',

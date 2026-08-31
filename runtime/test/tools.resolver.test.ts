@@ -1,17 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs } from '../src/tools/resolver.js'
+import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs, enrichSchemas } from '../src/tools/resolver.js'
 import { matchesContestedDomain } from '../src/tools/contested.js'
 import type { TwigClaim } from '../src/memory/types.js'
 
 describe('§5 Tool Resolver（capability → MCP tool）', () => {
-  it('泳道收敛 + provider→server 映射：chat 泳道含 time(core) 与 web(ddg-search)', () => {
+  it('泳道收敛 + provider→server 映射：chat 泳道含 time(core) 与 web(web 内置 server)', () => {
     const tools = toolsForLane('chat')
     const time = tools.find(t => t.fnName === 'time_get_current_time')
     const search = tools.find(t => t.fnName === 'web_search')
     expect(time).toMatchObject({ server: 'core', tool: 'get_current_time', confirmationRequired: false })
-    expect(search).toMatchObject({ server: 'ddg-search', tool: 'search' })
+    expect(search).toMatchObject({ server: 'web', tool: 'search' })
     // OpenAI function 名不允许点号
     for (const t of tools) expect(t.fnName).toMatch(/^[a-zA-Z0-9_]{1,64}$/)
+  })
+
+  it('§5.4 enrichSchemas 用网关真实 input_schema 替换占位；未匹配工具保留占位', () => {
+    const tools = toolsForLane('chat')
+    const enriched = enrichSchemas(tools, [
+      { server: 'web', name: 'search', description: '', input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    ])
+    const search = enriched.find(t => t.fnName === 'web_search')
+    expect(search?.parameters).toMatchObject({ required: ['query'] })
+    const time = enriched.find(t => t.fnName === 'time_get_current_time')
+    expect(time?.parameters).toMatchObject({ type: 'object', properties: {} }) // 占位保留
   })
 
   it('§4.6 确认要求按工具级 override 解析（mail.send_mail ✓ / search_mail ✗）', () => {

@@ -1,11 +1,9 @@
 {
   "mcpServers": {
     "core": { "type": "builtin" },
-    "ddg-search": {
-      "type": "local",
-      "command": ["npx", "-y", "@OEvortex/ddg_search"],
-      "enabled": true
-    },
+    "web": { "type": "builtin" },
+    "music": { "type": "builtin" },
+    "scholar": { "type": "builtin" },
     "google-calendar": {
       "type": "remote",
       "url": "https://mcp-calendar.example.com/mcp",

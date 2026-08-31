@@ -9,14 +9,15 @@ lanes:
   research: [time, web, research]
   tool:     [time, web, calendar, mail, music, research]
 
-# §5 Tool Resolver：capability provider → mcp-gateway 里的 server 名
+# §5 Tool Resolver：capability provider → mcp-gateway 里的 server 名。
+# 内置 server（core/web/music/scholar）在网关源码里实现，容错性最高；remote 仅 OAuth 型（gmail/calendar）。
 mcp_servers:
   system: core
-  browser: ddg-search
+  browser: web
   google_calendar: google-calendar
   gmail: gmail
-  netease_mcp: netease-mcp
-  semantic_scholar: semantic-scholar
+  netease_mcp: music
+  semantic_scholar: scholar
 
 cap_domains:
   # §4.7 contested → capability 域映射：论断命中以下关键词时，相关域工具降级为 askUserFirst

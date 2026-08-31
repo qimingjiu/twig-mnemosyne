@@ -14,7 +14,7 @@ import type { Pool } from 'pg'
 import type { Redis } from 'ioredis'
 import { env } from '../config.js'
 import { getUserById, type ClientRow, type UserRow } from '../identity/service.js'
-import { handleChatCompletion, type ChatDeps } from '../chat/pipeline.js'
+import { handleChatCompletion, type Attachment, type ChatDeps } from '../chat/pipeline.js'
 
 const API = (token: string, method: string): string => `https://api.telegram.org/bot${token}/${method}`
 const TG_CHUNK = 3800
@@ -53,6 +53,20 @@ export async function sendTelegram(token: string, chatId: number, text: string):
   chunks.push(rest)
   for (const c of chunks) {
     await tgCall(token, 'sendMessage', { chat_id: chatId, text: c, disable_web_page_preview: true })
+  }
+}
+
+/**
+ * §5.5 音乐附件落 TG：优先 sendAudio（TG 的可播放音乐卡片，直传 play_url），
+ * 失败降级带链接预览的页面URL消息（least-formidable fallback：网易云卡片仍能预览）。
+ */
+export async function sendMusicAttachment(token: string, chatId: number, att: Attachment): Promise<void> {
+  const caption = `🎵 ${att.title}${att.artist ? ` · ${att.artist}` : ''}\n${att.page_url}`
+  try {
+    await tgCall(token, 'sendAudio', { chat_id: chatId, audio: att.play_url, title: att.title, performer: att.artist, caption })
+  } catch (e) {
+    console.error('[telegram] sendAudio failed, falling back to link preview:', e instanceof Error ? e.message : e)
+    await tgCall(token, 'sendMessage', { chat_id: chatId, text: caption, disable_web_page_preview: false })
   }
 }
 
@@ -102,9 +116,14 @@ async function handleUpdate(deps: TgDeps, update: TgUpdate): Promise<void> {
   const payload = outcome.payload as {
     choices?: { message?: { content?: string } }[]
     mnemosyne?: { route_reason?: string }
+    attachments?: Attachment[]
   }
   const reply = payload.choices?.[0]?.message?.content ?? '（我这边的回复出了点问题，稍后再试一次？）'
   await sendTelegram(deps.botToken, chatId, reply)
+  // 附件单独走（§5.5）；音乐卡片 Ty 要单独的 sendAudio 或链卡，混在文本里发没意义
+  for (const att of payload.attachments ?? []) {
+    if (att.kind === 'music') await sendMusicAttachment(deps.botToken, chatId, att)
+  }
   console.log(`[telegram] replied chat_id=${chatId} route=${payload.mnemosyne?.route_reason ?? '?'}`)
 }
 

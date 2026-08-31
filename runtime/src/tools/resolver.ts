@@ -4,6 +4,7 @@
  * 意图分类归 Router（§10.2），本模块只做「该泳道能看见哪些工具」的收敛与映射。
  */
 import { getForLane, loadCapabilities, type Capability, type ToolDef } from '../router/capabilities.js'
+import type { GatewayToolInfo } from './executor.js'
 
 export interface RuntimeTool {
   fnName: string
@@ -15,42 +16,41 @@ export interface RuntimeTool {
   confirmationRequired: boolean
 }
 
-// capabilities.yaml 的 provider → gateway 里的 mcp server 名
-const DEFAULT_PROVIDER_MAP: Record<string, string> = {
-  system: 'core',
-  browser: 'ddg-search',
-  google_calendar: 'google-calendar',
-  gmail: 'gmail',
-  netease_mcp: 'netease-mcp',
-  semantic_scholar: 'semantic-scholar',
-}
-
-function serverFor(cap: Capability, map: Record<string, string>): string {
-  return map[cap.provider] ?? cap.provider
-}
-
 function toolConfirmation(cap: Capability, tool: ToolDef): boolean {
   return tool.confirmation_required ?? cap.confirmation_required
 }
 
 export function toolsForLane(lane: string): RuntimeTool[] {
   const file = loadCapabilities()
-  const map = { ...DEFAULT_PROVIDER_MAP, ...(file.mcp_servers ?? {}) }
+  const map = file.mcp_servers ?? {}
   const out: RuntimeTool[] = []
   for (const cap of getForLane(lane, file)) {
     for (const tool of cap.tools) {
       out.push({
         fnName: `${cap.name}_${tool.name}`.replace(/[^a-zA-Z0-9_]/g, '_'),
-        server: serverFor(cap, map),
+        server: map[cap.provider] ?? cap.provider,
         tool: tool.name,
         capability: cap.name,
         description: tool.description,
-        parameters: { type: 'object', properties: {}, ...(tool.name === 'get_current_time' ? { properties: { tz: { type: 'string' } } } : {}) },
+        // 占位 schema；送往模型前由 enrichSchemas 用网关真实 input_schema 替换
+        parameters: { type: 'object', properties: {} },
         confirmationRequired: toolConfirmation(cap, tool),
       })
     }
   }
   return out
+}
+
+/**
+ * §5.4 schema 合并：网关 /tools 里是真实 input_schema，capabilities.yaml 只管确认要求与泳道过滤。
+ * 匹配不到（server 挂了/未登记）保留占位空参数，调用时会报 unknown-server 错误——绝不静默。
+ */
+export function enrichSchemas(tools: RuntimeTool[], gatewayTools: GatewayToolInfo[]): RuntimeTool[] {
+  const byKey = new Map(gatewayTools.map(g => [`${g.server}/${g.name}`, g] as const))
+  return tools.map(t => {
+    const real = byKey.get(`${t.server}/${t.tool}`)
+    return real ? { ...t, parameters: real.input_schema ?? t.parameters } : t
+  })
 }
 
 /** 按 fnName 反查（模型回传的 tool_call.function.name）。 */

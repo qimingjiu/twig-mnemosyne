@@ -15,6 +15,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFileSync } from 'node:fs'
+import { BUILTIN_SERVERS, type ToolInfo } from './builtin.js'
 
 const PORT = Number(process.env.PORT || 3000)
 const CONFIG_PATH = process.env.MCP_CONFIG_PATH || 'config.default.json'
@@ -24,6 +25,7 @@ interface ServerConfig {
   command?: string[]
   url?: string
   enabled?: boolean
+  skill_document?: string
 }
 
 interface GatewayConfig {
@@ -48,14 +50,9 @@ interface Conn {
 
 const conns = new Map<string, Conn>()
 const toolsCache = new Map<string, { tools: ToolInfo[]; at: number }>()
+// 每 server 最近一次故障，/health 透出（listTools 失败不再只沉在日志里）
+const lastError = new Map<string, string>()
 const TOOLS_TTL_MS = 60_000
-
-interface ToolInfo {
-  server: string
-  name: string
-  description: string
-  input_schema: unknown
-}
 
 async function getConnection(server: string): Promise<Conn> {
   const existing = conns.get(server)
@@ -85,39 +82,12 @@ async function getConnection(server: string): Promise<Conn> {
 
 // builtin 走独立快路径，避免与 SDK transport 类型纠缠
 function isBuiltin(server: string): boolean {
-  return config.mcpServers[server]?.type === 'builtin'
-}
-
-const BUILTIN_TOOLS: ToolInfo[] = [
-  {
-    server: 'core',
-    name: 'get_current_time',
-    description: "Returns the current time and date, optionally in a IANA timezone (e.g. Asia/Shanghai)",
-    input_schema: {
-      type: 'object',
-      properties: { tz: { type: 'string', description: 'IANA timezone, defaults to UTC' } },
-    },
-  },
-]
-
-function builtinCall(tool: string, args: Record<string, unknown>): string {
-  if (tool === 'get_current_time') {
-    const tz = typeof args.tz === 'string' && args.tz ? args.tz : 'UTC'
-    try {
-      const s = new Intl.DateTimeFormat('en-GB', {
-        timeZone: tz, dateStyle: 'full', timeStyle: 'long',
-      }).format(new Date())
-      return `${s} (${tz})`
-    } catch {
-      return `invalid timezone: ${tz}`
-    }
-  }
-  throw new Error(`unknown builtin tool: ${tool}`)
+  return server in BUILTIN_SERVERS
 }
 
 // ── 工具聚合与调用 ──────────────────────────────────────────────────────────
 async function listToolsFor(server: string): Promise<ToolInfo[]> {
-  if (isBuiltin(server)) return BUILTIN_TOOLS
+  if (isBuiltin(server)) return BUILTIN_SERVERS[server].tools
   const cached = toolsCache.get(server)
   if (cached && Date.now() - cached.at < TOOLS_TTL_MS) return cached.tools
   const conn = await getConnection(server)
@@ -138,8 +108,10 @@ async function allTools(): Promise<ToolInfo[]> {
   for (const server of enabled) {
     try {
       out.push(...(await listToolsFor(server)))
+      lastError.delete(server)
     } catch (e) {
-      // 单个 server 故障不拖垮聚合（懒连接失败即跳过，下次再试）
+      // 单个 server 故障不拖垮聚合（懒连接失败即跳过，下次再试）；故障原因透到 /health
+      lastError.set(server, e instanceof Error ? e.message : String(e))
       console.error(`[gateway] listTools ${server} failed:`, e instanceof Error ? e.message : e)
     }
   }
@@ -147,7 +119,7 @@ async function allTools(): Promise<ToolInfo[]> {
 }
 
 async function callTool(server: string, tool: string, args: Record<string, unknown>): Promise<string> {
-  if (isBuiltin(server)) return builtinCall(tool, args)
+  if (isBuiltin(server)) return await BUILTIN_SERVERS[server].call(tool, args)
   const conn = await getConnection(server)
   const res = await conn.client.callTool({ name: tool, arguments: args })
   if (res.isError) {
@@ -182,7 +154,16 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`)
   try {
     if (req.method === 'GET' && url.pathname === '/health') {
-      return json(res, 200, { ok: true, servers: Object.keys(config.mcpServers).length, connected: conns.size })
+      // 每 server 状态透出：Runtime 可以判断某项能力实际是活的还是死的
+      const servers = Object.entries(config.mcpServers).map(([name, c]) => ({
+        name,
+        type: isBuiltin(name) ? 'builtin' : c.type,
+        enabled: c.enabled !== false,
+        connected: isBuiltin(name) ? true : conns.has(name),
+        tools: isBuiltin(name) ? BUILTIN_SERVERS[name].tools.length : (toolsCache.get(name)?.tools.length ?? null),
+        last_error: lastError.get(name) ?? null,
+      }))
+      return json(res, 200, { ok: true, servers })
     }
     if (req.method === 'GET' && url.pathname === '/tools') {
       return json(res, 200, { tools: await allTools() })
