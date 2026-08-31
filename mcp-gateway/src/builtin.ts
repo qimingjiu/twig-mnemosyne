@@ -235,6 +235,38 @@ async function ccMixterSearch(query: string, limit: number): Promise<MusicSong[]
   })
 }
 
+// ── Jamendo：Creative Commons 音乐库（需 client_id；用户已提供）────────────────
+const JAMENDO_CLIENT_ID = process.env.JAMENDO_CLIENT_ID ?? '34fb3690'
+
+interface JamendoTrack {
+  id: string
+  name: string
+  artist_name: string
+  shareurl: string
+  audio: string
+  audiodownload: string
+}
+
+async function jamendoSearch(query: string, limit: number): Promise<MusicSong[]> {
+  const res = await http(
+    `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&search=${encodeURIComponent(query)}&limit=${limit}`,
+    {},
+    15_000,
+  )
+  if (!res.ok) throw new Error(`jamendo ${res.status}`)
+  const data = (await res.json()) as { headers?: { status?: string }; results?: JamendoTrack[] }
+  if (data.headers?.status !== 'success') throw new Error(`jamendo api error: ${data.headers?.status}`)
+  const tracks = data.results ?? []
+  return tracks.slice(0, limit).map(t => ({
+    id: parseInt(t.id, 10) || 0,
+    title: t.name,
+    artist: t.artist_name || 'unknown',
+    pageUrl: t.shareurl,
+    playUrl: t.audio || t.audiodownload,
+    source: 'jamendo',
+  }))
+}
+
 /** 音乐结果统一信封：Runtime 识别 status:'music' 转 TG 附件（play）或纯文本（search）。 */
 export function musicEnvelope(action: 'search' | 'play', songs: MusicSong[]): string {
   return JSON.stringify({ status: 'music', action, songs }, null, 2)
@@ -396,7 +428,7 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
     tools: [
       {
         name: 'search',
-        description: 'Search multiple music platforms (NetEase + ccMixter Creative Commons), returns candidates with page/play URLs',
+        description: 'Search multiple music platforms (NetEase + ccMixter + Jamendo), returns candidates with page/play URLs',
         input_schema: {
           type: 'object',
           properties: {
@@ -421,16 +453,18 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
       if (!query) throw new Error('query required')
       if (tool === 'search') {
         const limit = Math.min(numArg(args, 'limit', 5), 10)
-        // 并行搜索多源：网易云 + ccMixter（Creative Commons）
-        const [netease, ccmixter] = await Promise.allSettled([
+        // 并行搜索三源：网易云 + ccMixter + Jamendo
+        const [netease, ccmixter, jamendo] = await Promise.allSettled([
           neteaseSearch(query, limit),
           ccMixterSearch(query, limit),
+          jamendoSearch(query, limit),
         ])
         const songs: MusicSong[] = []
         if (netease.status === 'fulfilled') songs.push(...netease.value)
         if (ccmixter.status === 'fulfilled') songs.push(...ccmixter.value)
+        if (jamendo.status === 'fulfilled') songs.push(...jamendo.value)
         if (songs.length === 0) {
-          const errs = [netease, ccmixter]
+          const errs = [netease, ccmixter, jamendo]
             .filter(r => r.status === 'rejected')
             .map(r => (r as PromiseRejectedResult).reason)
           throw new Error(`all sources failed: ${errs.map(e => e instanceof Error ? e.message : String(e)).join('; ')}`)
@@ -438,11 +472,15 @@ export const BUILTIN_SERVERS: Record<string, BuiltinServer> = {
         return musicEnvelope('search', songs)
       }
       if (tool === 'play') {
-        // play 优先网易云（外链更稳定），ccMixter 兜底
+        // play 优先网易云 → Jamendo → ccMixter（外链稳定性递减）
         try {
           return musicEnvelope('play', await neteaseSearch(query, 1))
         } catch {
-          return musicEnvelope('play', await ccMixterSearch(query, 1))
+          try {
+            return musicEnvelope('play', await jamendoSearch(query, 1))
+          } catch {
+            return musicEnvelope('play', await ccMixterSearch(query, 1))
+          }
         }
       }
       throw new Error(`unknown builtin tool: music/${tool}`)
