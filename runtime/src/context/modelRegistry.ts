@@ -64,8 +64,11 @@ export function providerOf(name: string): string {
   return MODEL_REGISTRY[name]?.provider ?? 'unknown'
 }
 
-/** 按模型上限收敛温度；无上限登记（或经典模型）原样放行。 */
+/** 按模型上限收敛温度；无上限登记（或经典模型）原样放行。
+ * 推理型模型（maxTemperature=1）强制 temperature=1，任何其他值上游都会拒（OpenAIException: only 1 is allowed）。
+ */
 export function clampTemperature(temp: number, model: string): number {
   const cap = MODEL_REGISTRY[model]?.maxTemperature
+  if (cap === 1) return 1 // reasoning 型锁死 temperature=1
   return cap !== undefined ? Math.min(temp, cap) : temp
 }

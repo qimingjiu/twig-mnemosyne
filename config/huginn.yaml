@@ -10,7 +10,7 @@ huginn:
   generation:
     max_chars: 280
     temperature: 0.7
-    chain: ["deepseek-chat", "glm-5.2", "kimi-k3"]   # 复用 §3.8 装配；只列实际可用的模型
+    chain: ["deepseek-chat", "glm-5.2", "kimi-k2.6"]   # 复用 §3.8 装配；只列实际可用的模型
   outbox:
     max_retries: 3
     retry_backoff: [60, 300, 900]   # 秒
