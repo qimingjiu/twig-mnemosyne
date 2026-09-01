@@ -12,16 +12,17 @@ model_list:
       api_key: os.environ/ANTHROPIC_API_KEY
       rpm: 400
 
+  # DeepSeek 条目 2026-09-01 起统一指 v4-flash-vision-exp（识图版）；与 deploy/litellm/config.yaml 保持同步
   - model_name: deepseek-chat
     litellm_params:
-      model: deepseek/deepseek-chat
+      model: deepseek/deepseek-v4-flash-vision-exp
       api_key: os.environ/DEEPSEEK_API_KEY
       rpm: 1000
 
   # Agent 路由层小模型（§6.4 deepseek-flash）
   - model_name: deepseek-flash
     litellm_params:
-      model: deepseek/deepseek-chat
+      model: deepseek/deepseek-v4-flash-vision-exp
       api_key: os.environ/DEEPSEEK_API_KEY
       rpm: 1000
 
