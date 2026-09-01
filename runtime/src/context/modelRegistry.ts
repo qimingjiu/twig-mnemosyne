@@ -30,10 +30,12 @@ export const MODEL_REGISTRY: Record<string, ModelSpec> = {
   // 硅基流动 · GLM-5.2
   'glm-5.2': { contextWindow: 128000, maxOutput: 8192, lane: 'cloud', provider: 'siliconflow' },
   // ── Moonshot 官方 API（OpenAI 兼容）──
-  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
-  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
-  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
-  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
+  // kimi-k3 是温度锁=1 的 reasoning 型（2026-09-01「AI 死了二症」：未标上限→默认 0.7→上游 400
+  // 「invalid temperature: only 1 allowed」→首选用错第二个也连跪下一路）。四目 Moonshot 都标上。
+  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
+  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
+  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
+  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
   // ── CommandCode 中转（2026-09-01 批量接入，套餐内模型；名称与窗口经账号 /models + 实测核对，
   //    文档 v2026-08-26 已过时——GLM-5.3 系列文档漏了）──
   // Mnemosyne 别名 ≠ 上游名：litellm 侧逐字透传 CommandCode API 模型名（deploy/litellm/config.yaml）。
