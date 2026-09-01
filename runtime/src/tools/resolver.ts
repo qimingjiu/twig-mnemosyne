@@ -44,13 +44,33 @@ export function toolsForLane(lane: string): RuntimeTool[] {
 /**
  * §5.4 schema 合并：网关 /tools 里是真实 input_schema，capabilities.yaml 只管确认要求与泳道过滤。
  * 匹配不到（server 挂了/未登记）保留占位空参数，调用时会报 unknown-server 错误——绝不静默。
+ * 
+ * 2026-09-01 增补：把网关动态注册但 capabilities.yaml 未列出的工具也加进来（Smithery 等第三方 MCP）。
  */
 export function enrichSchemas(tools: RuntimeTool[], gatewayTools: GatewayToolInfo[]): RuntimeTool[] {
   const byKey = new Map(gatewayTools.map(g => [`${g.server}/${g.name}`, g] as const))
-  return tools.map(t => {
+  // 1. 补全已有工具的 schema
+  const enriched = tools.map(t => {
     const real = byKey.get(`${t.server}/${t.tool}`)
     return real ? { ...t, parameters: real.input_schema ?? t.parameters } : t
   })
+  // 2. 把 gateway 中有但 capabilities 未列出的新工具加进来
+  const existingKeys = new Set(tools.map(t => `${t.server}/${t.tool}`))
+  for (const g of gatewayTools) {
+    const key = `${g.server}/${g.name}`
+    if (!existingKeys.has(key)) {
+      enriched.push({
+        fnName: `${g.server}_${g.name}`.replace(/[^a-zA-Z0-9_]/g, '_'),
+        server: g.server,
+        tool: g.name,
+        capability: g.server,
+        description: g.description,
+        parameters: g.input_schema ?? { type: 'object', properties: {} },
+        confirmationRequired: true, // 第三方工具默认需要确认（安全方向）
+      })
+    }
+  }
+  return enriched
 }
 
 /** 按 fnName 反查（模型回传的 tool_call.function.name）。 */
