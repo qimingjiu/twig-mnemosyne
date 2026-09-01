@@ -51,18 +51,32 @@ async function main(): Promise<void> {
   const ingestion = new MemoryIngestionPipeline(twig)
   const box = new Box(env.ENCRYPTION_KEY)
 
-  // §8.3 部署自检：启动断言 twig auth === true，否则拒绝启动（T8.10）
-  try {
-    const h = await twig.health()
-    if (!h.ok || !h.auth) throw new Error(`twig health ok=${h.ok} auth=${h.auth}`)
-    console.log(`[twig] health ok, auth=true, llm=${h.llm}`)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
+  // §8.3 部署自检：启动断言 twig auth === true，否则拒绝启动（T8.10）。
+  // 滚动部署/镜像重建期间 twig 会短暂不可达——先前一次失败即 process.exit(1)，把机器人打进
+  // CrashLoopBackOff 直到 twig 稳定（2026-09-01「AI 死了」事故）；现改为 60s 内重试，耗尽才拒启。
+  const TWIG_RETRY_LIMIT = 30
+  let twigCheck = ''
+  for (let attempt = 1; attempt <= TWIG_RETRY_LIMIT; attempt++) {
+    try {
+      const h = await twig.health()
+      if (!h.ok || !h.auth) throw new Error(`twig health ok=${h.ok} auth=${h.auth}`)
+      console.log(`[twig] health ok, auth=true, llm=${h.llm}`)
+      twigCheck = ''
+      break
+    } catch (e) {
+      twigCheck = e instanceof Error ? e.message : String(e)
+      if (attempt < TWIG_RETRY_LIMIT) {
+        console.warn(`[twig] health attempt ${attempt}/${TWIG_RETRY_LIMIT} failed: ${twigCheck}; retrying in 2s`)
+        await new Promise(r => setTimeout(r, 2000))
+      }
+    }
+  }
+  if (twigCheck) {
     if (env.NODE_ENV === 'production') {
-      console.error(`[twig] startup assertion failed, refusing to start: ${msg}`)
+      console.error(`[twig] startup assertion failed after ${TWIG_RETRY_LIMIT} attempts, refusing to start: ${twigCheck}`)
       process.exit(1)
     }
-    console.warn(`[twig] health check failed (development mode continues): ${msg}`)
+    console.warn(`[twig] health check failed (development mode continues): ${twigCheck}`)
   }
 
   const app = Fastify({
