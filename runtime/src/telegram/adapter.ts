@@ -115,6 +115,14 @@ async function handleUpdate(deps: TgDeps, update: TgUpdate): Promise<void> {
   if (msg.from?.is_bot) return
   if (msg.chat.type !== 'private') return
 
+  // §1.2 幂等去重：滚动部署双 pod 同时轮询同一 token 时，防止同一条 update 被两个实例各处理一次
+  const dedupKey = `tg:processed:${update.update_id}`
+  const deduped = await deps.redis.set(dedupKey, '1', 'EX', 120, 'NX')
+  if (!deduped) {
+    console.log(`[telegram] dedup skip update_id=${update.update_id}`)
+    return
+  }
+
   const chatId = msg.chat.id
   const client = await findTgClient(deps.db, chatId)
   if (!client) {
