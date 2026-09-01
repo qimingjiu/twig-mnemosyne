@@ -81,9 +81,10 @@ export function ttsSanitize(text: string, opts: { crisis: boolean }): string {
   return trimmed
 }
 
-/** §21.3 提供商链：第一梯队 ElevenLabs（配了 key+voice 才启用）→ OpenAI tts-1-hd 兜底（tts_priority.yaml 第二梯队外的现有 key 复用）；都未配 → null 静默降级为文字。 */
+/** §21.3 提供商链：第一梯队 ElevenLabs（配了 key+voice 才启用）→ SiliconFlow CosyVoice2（现有 key，2026-09-01 实测可用）→ OpenAI tts-1-hd（本服务器出口被 OpenAI 区域封锁，仅留作代码兜底）；都未配/全败 → null 静默降级为文字。 */
 export interface TtsProviderOptions {
   elevenlabs?: { apiKey?: string; voiceId?: string }
+  siliconflow?: { apiKey?: string; voice?: string }
   openai?: { apiKey?: string; voice?: string }
 }
 
@@ -138,6 +139,30 @@ async function synthesizeOpenai(text: string, apiKey: string): Promise<{ mime: s
   return { mime: 'audio/mpeg', base64: buf.toString('base64') }
 }
 
+async function synthesizeSiliconflow(text: string, apiKey: string): Promise<{ mime: string; base64: string } | null> {
+  const res = await fetch('https://api.siliconflow.cn/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'FunAudioLLM/CosyVoice2-0.5B',
+      input: text,
+      // 渡鸦人格是男声：默认 alex；可选 benjamin/charles/david（女声 anna/bella/claire/diana）
+      voice: process.env.TTS_SILICONFLOW_VOICE || 'FunAudioLLM/CosyVoice2-0.5B:alex',
+      response_format: 'mp3',
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+  if (!res.ok) {
+    console.error('[tts] siliconflow failed:', res.status, (await res.text()).slice(0, 200))
+    return null
+  }
+  const buf = Buffer.from(await res.arrayBuffer())
+  return { mime: 'audio/mpeg', base64: buf.toString('base64') }
+}
+
 export async function synthesizeTts(
   text: string,
   opts: TtsProviderOptions = {},
@@ -149,6 +174,15 @@ export async function synthesizeTts(
       if (audio) return audio
     } catch (e) {
       console.error('[tts] elevenlabs error:', e instanceof Error ? e.message : e)
+    }
+  }
+  const sf = opts.siliconflow
+  if (sf?.apiKey) {
+    try {
+      const audio = await synthesizeSiliconflow(text, sf.apiKey)
+      if (audio) return audio
+    } catch (e) {
+      console.error('[tts] siliconflow error:', e instanceof Error ? e.message : e)
     }
   }
   const oa = opts.openai

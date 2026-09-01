@@ -516,6 +516,7 @@ async function finalize(
           apiKey: process.env.ELEVENLABS_API_KEY || undefined,
           voiceId: process.env.ELEVENLABS_VOICE_ID || undefined,
         },
+        siliconflow: { apiKey: process.env.SILICONFLOW_API_KEY || undefined },
         openai: { apiKey: process.env.OPENAI_API_KEY || undefined },
       })
       if (synthesized) {
