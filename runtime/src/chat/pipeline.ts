@@ -512,8 +512,11 @@ async function finalize(
       const sanitized = ttsSanitize(st.content, { crisis: st.crisis })
       ttsChars = [...sanitized].length
       const synthesized = await synthesizeTts(sanitized, {
-        apiKey: process.env.ELEVENLABS_API_KEY || undefined,
-        voiceId: process.env.ELEVENLABS_VOICE_ID || undefined,
+        elevenlabs: {
+          apiKey: process.env.ELEVENLABS_API_KEY || undefined,
+          voiceId: process.env.ELEVENLABS_VOICE_ID || undefined,
+        },
+        openai: { apiKey: process.env.OPENAI_API_KEY || undefined },
       })
       if (synthesized) {
         const key = await stashAudio(deps.redis, st.requestId, synthesized)

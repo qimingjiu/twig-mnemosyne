@@ -81,14 +81,13 @@ export function ttsSanitize(text: string, opts: { crisis: boolean }): string {
   return trimmed
 }
 
-/** §21.3 第一梯队：ElevenLabs（云端优先）；未配置 key/voice 时不合成，静默降级为文字。 */
-export async function synthesizeTts(
-  text: string,
-  opts: { apiKey?: string; voiceId?: string },
-): Promise<{ mime: string; base64: string } | null> {
-  const apiKey = opts.apiKey
-  const voiceId = opts.voiceId
-  if (!apiKey || !voiceId) return null
+/** §21.3 提供商链：第一梯队 ElevenLabs（配了 key+voice 才启用）→ OpenAI tts-1-hd 兜底（tts_priority.yaml 第二梯队外的现有 key 复用）；都未配 → null 静默降级为文字。 */
+export interface TtsProviderOptions {
+  elevenlabs?: { apiKey?: string; voiceId?: string }
+  openai?: { apiKey?: string; voice?: string }
+}
+
+async function synthesizeElevenlabs(text: string, apiKey: string, voiceId: string): Promise<{ mime: string; base64: string } | null> {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
     headers: {
@@ -108,9 +107,59 @@ export async function synthesizeTts(
     }),
     signal: AbortSignal.timeout(20_000),
   })
-  if (!res.ok) return null
+  if (!res.ok) {
+    console.error('[tts] elevenlabs failed:', res.status, (await res.text()).slice(0, 200))
+    return null
+  }
   const buf = Buffer.from(await res.arrayBuffer())
   return { mime: 'audio/mpeg', base64: buf.toString('base64') }
+}
+
+async function synthesizeOpenai(text: string, apiKey: string): Promise<{ mime: string; base64: string } | null> {
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'tts-1-hd',
+      input: text,
+      voice: process.env.TTS_OPENAI_VOICE || 'alloy',
+      response_format: 'mp3',
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+  if (!res.ok) {
+    console.error('[tts] openai failed:', res.status, (await res.text()).slice(0, 200))
+    return null
+  }
+  const buf = Buffer.from(await res.arrayBuffer())
+  return { mime: 'audio/mpeg', base64: buf.toString('base64') }
+}
+
+export async function synthesizeTts(
+  text: string,
+  opts: TtsProviderOptions = {},
+): Promise<{ mime: string; base64: string } | null> {
+  const el = opts.elevenlabs
+  if (el?.apiKey && el?.voiceId) {
+    try {
+      const audio = await synthesizeElevenlabs(text, el.apiKey, el.voiceId)
+      if (audio) return audio
+    } catch (e) {
+      console.error('[tts] elevenlabs error:', e instanceof Error ? e.message : e)
+    }
+  }
+  const oa = opts.openai
+  if (oa?.apiKey) {
+    try {
+      return await synthesizeOpenai(text, oa.apiKey)
+    } catch (e) {
+      console.error('[tts] openai error:', e instanceof Error ? e.message : e)
+    }
+  }
+  return null
 }
 
 /** 不持久化：Redis TTL 60s 即焚（T11.1），键与任何缓存层命名空间隔离。 */

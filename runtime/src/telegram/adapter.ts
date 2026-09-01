@@ -70,6 +70,24 @@ export async function sendMusicAttachment(token: string, chatId: number, att: At
   }
 }
 
+/**
+ * §21 TTS 音频落 TG：即焚键取回（pipeline 已合成、Redis TTL 60s）→ sendAudio 直传字节。
+ * 用 sendAudio（mp3 可播）而非 sendVoice：语音气泡硬性要求 ogg/opus，无 ffmpeg 不转码。
+ * 即焚语义（T11.1）：取走即删，TTL 是兜底不是依赖。
+ */
+export async function sendTtsAudio(token: string, chatId: number, buf: Buffer, mime: string): Promise<void> {
+  const form = new FormData()
+  form.append('chat_id', String(chatId))
+  form.append('audio', new Blob([buf], { type: mime || 'audio/mpeg' }), 'reply.mp3')
+  const res = await fetch(API(token, 'sendAudio'), {
+    method: 'POST',
+    body: form,
+    signal: AbortSignal.timeout(30_000),
+  })
+  const data = (await res.json()) as { ok: boolean; description?: string }
+  if (!data.ok) throw new Error(`telegram sendAudio(tts): ${data.description ?? res.status}`)
+}
+
 interface TgDeps extends ChatDeps {
   botToken: string
 }
@@ -117,9 +135,23 @@ async function handleUpdate(deps: TgDeps, update: TgUpdate): Promise<void> {
     choices?: { message?: { content?: string } }[]
     mnemosyne?: { route_reason?: string }
     attachments?: Attachment[]
+    audio?: { data?: string; mime?: string }
   }
   const reply = payload.choices?.[0]?.message?.content ?? '（我这边的回复出了点问题，稍后再试一次？）'
   await sendTelegram(deps.botToken, chatId, reply)
+  // TTS 音频（§21）：即焚键取回直发；失败不吞文本回复
+  if (payload.audio?.data) {
+    try {
+      const raw = await deps.redis.get(payload.audio.data)
+      if (raw) {
+        const { mime, base64 } = JSON.parse(raw) as { mime: string; base64: string }
+        await sendTtsAudio(deps.botToken, chatId, Buffer.from(base64, 'base64'), mime)
+        await deps.redis.del(payload.audio.data).catch(() => {})
+      }
+    } catch (e) {
+      console.error('[telegram] tts sendAudio failed:', e instanceof Error ? e.message : e)
+    }
+  }
   // 附件单独走（§5.5）；音乐卡片 Ty 要单独的 sendAudio 或链卡，混在文本里发没意义
   for (const att of payload.attachments ?? []) {
     if (att.kind === 'music') await sendMusicAttachment(deps.botToken, chatId, att)
