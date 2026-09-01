@@ -60,24 +60,6 @@ model_list:
       api_base: https://api.commandcode.ai/provider/v1
       api_key: os.environ/COMMANDCODE_API_KEY
 
-  - model_name: kimi-k2.7-code-highspeed
-    litellm_params:
-      model: openai/moonshotai/Kimi-K2.7-Code-Highspeed
-      api_base: https://api.commandcode.ai/provider/v1
-      api_key: os.environ/COMMANDCODE_API_KEY
-
-  - model_name: kimi-k2.7-code
-    litellm_params:
-      model: openai/moonshotai/Kimi-K2.7-Code
-      api_base: https://api.commandcode.ai/provider/v1
-      api_key: os.environ/COMMANDCODE_API_KEY
-
-  - model_name: kimi-k2.6
-    litellm_params:
-      model: openai/moonshotai/Kimi-K2.6
-      api_base: https://api.commandcode.ai/provider/v1
-      api_key: os.environ/COMMANDCODE_API_KEY
-
   - model_name: kimi-k2.5
     litellm_params:
       model: openai/moonshotai/Kimi-K2.5
@@ -103,12 +85,34 @@ model_list:
       api_base: https://api.commandcode.ai/provider/v1
       api_key: os.environ/COMMANDCODE_API_KEY
 
-  # OpenCode Zen · Kimi K3
+  # ── Moonshot 官方 API（OpenAI 兼容）──
   - model_name: kimi-k3
     litellm_params:
       model: openai/kimi-k3
-      api_base: https://opencode.ai/zen/go/v1
-      api_key: os.environ/OPENCODE_API_KEY
+      api_base: https://api.moonshot.cn/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      rpm: 300
+
+  - model_name: kimi-k2.7-code
+    litellm_params:
+      model: openai/kimi-k2.7-code
+      api_base: https://api.moonshot.cn/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      rpm: 300
+
+  - model_name: kimi-k2.7-code-highspeed
+    litellm_params:
+      model: openai/kimi-k2.7-code-highspeed
+      api_base: https://api.moonshot.cn/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      rpm: 300
+
+  - model_name: kimi-k2.6
+    litellm_params:
+      model: openai/kimi-k2.6
+      api_base: https://api.moonshot.cn/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      rpm: 300
 
   # OpenCode Zen · GPT 5.6 Luna
   - model_name: gpt-5.6-luna

@@ -25,20 +25,21 @@ export const MODEL_REGISTRY: Record<string, ModelSpec> = {
   // ── OpenAI 兼容中转（2026-08-30 接入；窗口在对照官方规格前取保守值，偏小只影响预算装配上限，安全方向）──
   // CommandCode 中转 · Gemini 3.7 Flash（套餐内，替代 3.1 Flash Lite/MODEL_NOT_IN_PLAN）
   'gemini-3.7-flash': { contextWindow: 1000000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
-  // OpenCode Zen · Kimi K3 / GPT 5.6 Luna（同一把 key 两个模型条目）
-  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'opencode' },
+  // OpenCode Zen · GPT 5.6 Luna（同一把 key 两个模型条目）
   'gpt-5.6-luna': { contextWindow: 128000, maxOutput: 16384, lane: 'cloud', provider: 'opencode', maxTemperature: 1 },
   // 硅基流动 · GLM-5.2
   'glm-5.2': { contextWindow: 128000, maxOutput: 8192, lane: 'cloud', provider: 'siliconflow' },
+  // ── Moonshot 官方 API（OpenAI 兼容）──
+  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
+  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
+  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
+  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot' },
   // ── CommandCode 中转（2026-09-01 批量接入，套餐内模型；名称与窗口经账号 /models + 实测核对，
   //    文档 v2026-08-26 已过时——GLM-5.3 系列文档漏了）──
   // Mnemosyne 别名 ≠ 上游名：litellm 侧逐字透传 CommandCode API 模型名（deploy/litellm/config.yaml）。
   'gpt-5.6-sol': { contextWindow: 1050000, maxOutput: 16384, lane: 'cloud', provider: 'commandcode', maxTemperature: 1 },
   'grok-4.5': { contextWindow: 500000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
   'grok-4.6': { contextWindow: 500000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
-  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
-  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
-  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
   'kimi-k2.5': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
   'glm-5.2-fast': { contextWindow: 1000000, maxOutput: 8192, lane: 'cloud', provider: 'commandcode' },
   // GLM-5.3 双条目：上游 org 前缀不同（zai-org vs z-ai），逐字勿混

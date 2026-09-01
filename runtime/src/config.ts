@@ -50,7 +50,10 @@ const EnvSchema = z.object({
   ADMIN_TOKEN: z.string().default(''),
 
   // §3.8 默认 fallback 链
-  DEFAULT_MODEL_CHAIN: z.string().default('gpt-4o,claude-sonnet,gemini-pro'),
+  DEFAULT_MODEL_CHAIN: z.string().default('kimi-k2.6,gpt-4o,claude-sonnet,gemini-pro'),
+
+  // Moonshot 官方 API 密钥
+  MOONSHOT_API_KEY: z.string().default(''),
 })
 
 export type Env = z.infer<typeof EnvSchema>

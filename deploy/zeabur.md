@@ -30,7 +30,7 @@
 | 变量 | 服务 | 必需性 |
 |---|---|---|
 | `KIMI_API_KEY` | twig-memory | 必需（叙事引擎 LLM） |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `GEMINI_API_KEY` | litellm | 至少一个；决定 fallback 链可用性 |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `GEMINI_API_KEY` / `MOONSHOT_API_KEY` | litellm | 至少一个；决定 fallback 链可用性 |
 | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | mnemosyne | 可选（TTS；缺省静默降级为文字） |
 | `GOOGLE_TTS_API_KEY` | mnemosyne | 可选 |
 | `SEMANTIC_SCHOLAR_API_KEY` | mcp-gateway | 可选（学术搜索主源；semanticscholar.org/product/api 免费申请，无学术邮箱被拦可不申请——**不配自动走 OpenAlex 免 key 兜底**） |
@@ -41,7 +41,7 @@
 
 - `postgres`：`POSTGRES_USER=mnemosyne`、`POSTGRES_PASSWORD=${DB_PASSWORD}`、`POSTGRES_DB=mnemosyne`
 - `twig-memory`：`PORT=7300`、`MUNINN_AUTH_TOKEN`、`MUNINN_DATA_DIR=/data`、`MUNINN_TZ=Asia/Shanghai`、`KIMI_API_KEY`
-- `litellm`：`LITELLM_MASTER_KEY`、各 provider key、`OLLAMA_API_BASE` 可不设（本地 lane 形态 A 时指向 tailnet）
+- `litellm`：`LITELLM_MASTER_KEY`、各 provider key（含 `MOONSHOT_API_KEY`）、`OLLAMA_API_BASE` 可不设（本地 lane 形态 A 时指向 tailnet）
 - `mnemosyne`：`DATABASE_URL`、`REDIS_URL`、`TWIG_URL`、`MUNINN_AUTH_TOKEN`、`LITELLM_URL`、`LITELLM_API_KEY`、`ENCRYPTION_KEY`、`CONFIRM_SECRET`、`BROKER_INTERNAL_TOKEN`、`BOOTSTRAP_TOKEN`、`ADMIN_TOKEN`、`MCP_GATEWAY_URL`（指向第 6 服务私有地址，形如 `http://mcp-gateway.zeabur.internal:3000`）、`DEFAULT_MODEL_CHAIN`（§3.8 fallback 链，如 `kimi-k3,deepseek-chat,glm-5.2,gpt-5.6-luna,gemini-3.7-flash`）、`ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`（§21 TTS 可选；缺省走 SiliconFlow 兜底）、`NODE_ENV=production`
   - 各 URL 用 Zeabur 控制台显示的**私有地址**（形如 `xxx.zeabur.internal`），不要用公网域名回环。
 - `mcp-gateway`：无必需变量；`DEFAULT_TIMEZONE=Asia/Shanghai` 可选（`get_current_time` 缺省 tz 时的默认时区，不设则用容器本地时间）；`OPENALEX_EMAIL` 可选（学术兜底源 polite pool，提升限额）
