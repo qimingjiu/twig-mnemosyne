@@ -299,7 +299,7 @@ export async function webLogin(
   await db.query(
     `INSERT INTO clients (user_id, client_type, key_hash, display_name, scopes, metadata)
      VALUES ($1, 'web', $2, $3, '{chat}', '{}')`,
-    [user.id, sha256Hex(clientKey), 'Y2K Dashboard'],
+    [user.id, sha256Hex(clientKey), 'Aegean Night Dashboard'],
   )
   limiter.reset(limiterKey)
   return { clientKey, user, rotated: false }

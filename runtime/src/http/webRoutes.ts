@@ -1,5 +1,5 @@
 /**
- * /v1/web/* —— Y2K Dashboard BFF（浏览器只对 runtime 说话）。
+ * /v1/web/* —— 爱琴海之夜 Dashboard BFF（浏览器只对 runtime 说话）。
  *
  * 设计：ADMIN_TOKEN、MUNINN_AUTH_TOKEN、broker token 都不进浏览器；web 在 identity
  * 体系里就是一个 client_type='web' 的客户端，浏览器只持有自己的 client_key。

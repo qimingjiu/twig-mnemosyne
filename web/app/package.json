@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Y2K Dashboard —— Mnemosyne web 前端（Vite MPA，浏览器只对 runtime /v1/web/* 说话）",
+  "description": "爱琴海之夜 Dashboard —— Mnemosyne web 前端（Vite MPA，浏览器只对 runtime /v1/web/* 说话）",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

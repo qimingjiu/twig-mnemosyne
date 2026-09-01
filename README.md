@@ -16,7 +16,7 @@ LiteLLM 网关路由到任意厂商。所有数据落在自己的 Postgres 与�
 | 主动触达 | Huginn 状态机：原子抢槽、幂等投递、outbox 恢复、防纠缠冷却 | `runtime/src/outreach` |
 | 工具 | MCP 网关懒连接聚合 + Token Broker 短票取件 | `mcp-gateway/` `runtime/src/broker` |
 | 语音 | TTS 云端优先链、语义截断、60s 即焚 | `runtime/src/voice` |
-| 可观测 | prom-client 指标 + Y2K Dashboard | `runtime/src/observability` `web/` |
+| 可观测 | prom-client 指标 + 爱琴海之夜 Dashboard | `runtime/src/observability` `web/` |
 
 ## 架构
 
@@ -60,7 +60,7 @@ bootstrap 输出 `eternal_id` 与唯一的 `client_key`（明文只出现这一�
 │   ├── migrations/         Postgres 迁移（启动时自动执行）
 │   ├── scripts/            bootstrap / relocate（记忆搬家）/ huginn 手动入口 / persona
 │   └── test/               单测 + 集成测试（需真实 PG，未配置自动跳过）
-├── web/                    Y2K Dashboard（app/ = Vite MPA；mockups/ = 设计稿存档）
+├── web/                    爱琴海之夜 Dashboard（app/ = Vite MPA；mockups/ = 设计稿存档）
 ├── mcp-gateway/            MCP 工具网关（懒连接 / 工具聚合 / skill_document 透传）
 ├── config/                 运行时 YAML 配置（capability 注册表 / 触达引擎 / TTS 优先链）
 ├── deploy/                 部署：Dockerfile（compose 与 Zeabur 两版）、compose 挂载件、Zeabur 手册

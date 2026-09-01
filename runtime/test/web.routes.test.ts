@@ -37,7 +37,7 @@ describe('webLogin（/v1/web/login 的服务端语义）', () => {
     expect(insert).toBeDefined()
     expect(insert!.params[0]).toBe(USER.id)
     expect(insert!.params[1]).toMatch(/^[a-f0-9]{64}$/) // key_hash = sha256(client_key)
-    expect(insert!.params[2]).toBe('Y2K Dashboard')
+    expect(insert!.params[2]).toBe('Aegean Night Dashboard')
   })
 
   it('再次登录：轮换既有 web client 的 key（旧会话失效），rotated=true', async () => {

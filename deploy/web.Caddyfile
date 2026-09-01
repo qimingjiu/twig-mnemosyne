@@ -1,0 +1,32 @@
+# Mnemosyne 爱琴海之夜 Dashboard —— 静态托管 + 同域 API 反代（Zeabur web 服务 / compose 通用）
+# 上游经环境变量注入：Zeabur 设 MNEMOSYNE_UPSTREAM=http://mnemosyne.zeabur.internal:8000，
+# compose 路线默认 runtime 容器名（vite dev 的 /v1 反代另见 web/app/vite.config.js）。
+# 限流职责在应用层（per client_key + per IP，§13.4）；Caddy 不假装限流。
+
+:8080 {
+	encode gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# API → mnemosyne runtime（同域免 CORS；浏览器只持有 web client_key）
+	handle /v1/* {
+		reverse_proxy {$MNEMOSYNE_UPSTREAM:localhost:8000}
+	}
+	handle /health {
+		reverse_proxy {$MNEMOSYNE_UPSTREAM:localhost:8000}
+	}
+	handle /metrics {
+		reverse_proxy {$MNEMOSYNE_UPSTREAM:localhost:8000}
+	}
+
+	# Dashboard 静态站（Vite MPA：/book → book.html；无 SPA fallback 需求）
+	handle {
+		root * /srv/www
+		try_files {path} {path}.html
+		file_server
+	}
+}

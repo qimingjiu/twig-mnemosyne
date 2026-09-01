@@ -181,7 +181,7 @@ services:
       - mnemosyne
     profiles: ["local-lane"]
 
-  # ─── Reverse Proxy（主域同时托管 Y2K Dashboard 静态站 + API 反代）───
+  # ─── Reverse Proxy（主域同时托管爱琴海之夜 Dashboard 静态站 + API 反代）───
   caddy:
     image: caddy:2-alpine
     ports:

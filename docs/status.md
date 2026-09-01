@@ -43,7 +43,7 @@ GREATEST monotonic 静默期、加密独立审计）、Context Builder（预算�
 启动断言 auth=true / T8.10）、Token Broker（§5.3）、Huginn 全状态机（§19 v0.3.1：
 原子抢槽 / 幂等投递 / Outbox Worker / 三层自强化防线）、语音管线（§21：shouldTTS PATCH-06 /
 语义截断 / ElevenLabs / 60s 即焚）、记忆搬家 CLI（§23）、prom-client 指标、
-web BFF（`/v1/web/*`）与 Y2K Dashboard 第一层数据接入、OpenAI 兼容面（`/v1/models` 模型列表 +
+web BFF（`/v1/web/*`）与爱琴海之夜 Dashboard 第一层数据接入、OpenAI 兼容面（`/v1/models` 模型列表 +
 chat 假流式 chunk 重放——RikkaHub 等标准 OpenAI 客户端可直连，stream=true 不再 501）。
 
 ## 未实现（接口位已留，见代码内 TODO 锚点）
@@ -56,7 +56,7 @@ chat 假流式 chunk 重放——RikkaHub 等标准 OpenAI 客户端可直连，
 | 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；exact/context 两层已覆盖 |
 | 真流式（上游 token 级透传） | http/routes | 已提供假流式：同步补全按 OpenAI chunk 协议重放（SSE）；上游 token 级流式未接 |
 | DNS rebinding 钉扎 | identity/webhookGuard | 投递前重解析近似；严格版需 undici Dispatcher 钉 IP |
-| Y2K Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续 |
+| 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续 |
 | OTel → Collector | observability | prom-client 直采（务实 v0） |
 | Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
 | vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似（详见 docs/upstream.md） |

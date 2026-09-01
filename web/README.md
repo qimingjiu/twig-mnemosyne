@@ -1,4 +1,4 @@
-# web/ — Y2K Dashboard
+# web/ — 爱琴海之夜 Dashboard（Aegean Night）
 
 Mnemosyne 的 web 前端。浏览器**只对 runtime 说话**（`/v1/web/*` BFF）：`ADMIN_TOKEN`、
 twig-memory 凭证、broker token 都不出服务端，浏览器只持有自己的 web `client_key`。
@@ -41,5 +41,9 @@ web 会话失效），或直接粘贴已有的 `mn_…` client_key。
 
 ## 部署
 
-compose 栈里 caddy 挂载 `./web/dist:/srv/www`：构建一次（`npm run build`），Caddy 主域
-直接托管静态站并同域反代 `/v1/*`、`/metrics`、`/health` 到 runtime，无 CORS。
+**Zeabur（当前生产路线）**：服务清单第 7 行 `web`，`deploy/web.Dockerfile` 在构建期完成
+`npm run build` 并以 Caddy 托管 dist、同域反代 `/v1/*` `/metrics` `/health` 到
+`MNEMOSYNE_UPSTREAM`（mnemosyne 私有地址）。改前端只需 push，服务自动重构建。
+
+**compose（VPS 路线）**：caddy 挂载 `./web/dist:/srv/www`：构建一次（`npm run build`），
+Caddy 主域直接托管静态站并同域反代 `/v1/*`、`/metrics`、`/health` 到 runtime，无 CORS。

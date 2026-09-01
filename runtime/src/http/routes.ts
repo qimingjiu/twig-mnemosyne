@@ -251,7 +251,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   registerBrokerRoute(app, { db: deps.db, box: deps.box })
 
-  // —— Y2K Dashboard BFF（web 前端唯一对话面；凭证在服务端持有）——
+  // —— 爱琴海之夜 Dashboard BFF（web 前端唯一对话面；凭证在服务端持有）——
   registerWebRoutes(app, deps)
 
   // —— Huginn → Telegram 出站（OutreachDeliverer 的 webhook 落点；内部共享密钥守卫）——

@@ -11,10 +11,11 @@
 | 2 | `redis` | 镜像 `redis:7-alpine` | 6379 | ❌ 仅私有网络 |
 | 3 | `twig-memory` | GitHub `qimingjiu/twig-memory` @ main（v0.3.1 补丁已推送，Zeabur repo id `1327399926`） | 7300 | ❌ 仅私有网络 |
 | 4 | `litellm` | GitHub 本仓库 + `deploy/litellm/Dockerfile`（配置烤入镜像） | 4000 | ❌ 仅私有网络 |
-| 5 | `mnemosyne` | GitHub 本仓库 + `deploy/mnemosyne.Dockerfile`（repo 根上下文，config/ 与 migrations 打入镜像） | 8000 | ✅ 唯一暴露公网的服务（AI client 入口） |
+| 5 | `mnemosyne` | GitHub 本仓库 + `deploy/mnemosyne.Dockerfile`（repo 根上下文，config/ 与 migrations 打入镜像） | 8000 | ✅ AI client 入口（OpenAI 兼容 API，程序用） |
 | 6 | `mcp-gateway` | GitHub 本仓库 + `mcp-gateway/Dockerfile`（repo 根上下文） | 3000 | ❌ 仅私有网络 |
+| 7 | `web` | GitHub 本仓库 + `deploy/web.Dockerfile`（构建 web/app，Caddy 托管 dist + 同域反代 /v1/* /health /metrics） | 8080 | ✅ 爱琴海之夜 Dashboard（人用的前端，桌面/手机浏览器） |
 
-> 网络原则（§13.3 的 Zeabur 等价物）：只有 mnemosyne 绑定公网域名；postgres/redis/twig/litellm/mcp-gateway 一律私有地址。Twig 的全局令牌仍必须设置——私有网络不是免除认证的理由（T8.10 启动断言照常生效）。
+> 网络原则（§13.3 的 Zeabur 等价物）：mnemosyne（API）与 web（Dashboard）绑公网域名；postgres/redis/twig/litellm/mcp-gateway 一律私有地址。Twig 的全局令牌仍必须设置——私有网络不是免除认证的理由（T8.10 启动断言照常生效）。
 > Caddy 不需要：Zeabur 边缘自带 TLS/域名；限流职责在应用层（per client_key + per IP）。
 > 2C4G 常驻内存 ≈2.5–3.2GB（§13.1.1），专用服务器包月内，无按容器计费。
 > ⚠️ mcp-gateway 是**必建服务**：漏建或漏配 `MCP_GATEWAY_URL` 时，mnemosyne 默认连 `127.0.0.1:3000`（容器内无此服务），工具全废且**静默失败**——模型收不到工具结果就开始编造（2026-09-01「自己查時間报凌晨1點」事故）。用 `/health` 的 `mcp` 字段验证。
@@ -44,6 +45,7 @@
 - `mnemosyne`：`DATABASE_URL`、`REDIS_URL`、`TWIG_URL`、`MUNINN_AUTH_TOKEN`、`LITELLM_URL`、`LITELLM_API_KEY`、`ENCRYPTION_KEY`、`CONFIRM_SECRET`、`BROKER_INTERNAL_TOKEN`、`BOOTSTRAP_TOKEN`、`ADMIN_TOKEN`、`MCP_GATEWAY_URL`（指向第 6 服务私有地址，形如 `http://mcp-gateway.zeabur.internal:3000`）、`NODE_ENV=production`
   - 各 URL 用 Zeabur 控制台显示的**私有地址**（形如 `xxx.zeabur.internal`），不要用公网域名回环。
 - `mcp-gateway`：无必需变量；`DEFAULT_TIMEZONE=Asia/Shanghai` 可选（`get_current_time` 缺省 tz 时的默认时区，不设则用容器本地时间）；`OPENALEX_EMAIL` 可选（学术兜底源 polite pool，提升限额）
+- `web`：`MNEMOSYNE_UPSTREAM=http://mnemosyne.zeabur.internal:8000`（Caddy 反代目标；漏配则退化为 localhost:8000，页面能开但 API 全断）
 - 数据持久化：postgres / redis / twig 三服务各挂一块持久卷（twig 挂 `/data`——叙事数据在这里，**必须先买卷再启动**，见 §13.6 备份策略；备份 runbook 的 pg_dump/tar 逻辑不变，宿主机换成 Zeabur 卷快照 + 定期 dump）。
 
 ## 部署后验收
@@ -61,6 +63,8 @@ TEST_DATABASE_URL=postgresql://mnemosyne:$DB_PASSWORD@<postgres私有地址>:543
 curl -X POST https://<mnemosyne-domain>/v1/chat/completions \
   -H "Authorization: Bearer mn_..." -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"在吗"}]}'
+# 5. Dashboard（web 服务）：浏览器开 https://<web-domain>/ → 登录页 → 粘贴 web client_key；
+#    页面有数据且 rail 显示身份即通（/v1 反代断链时页面开得了但数据全空报错）
 ```
 
 ## 已知差异（相对 VPS compose 路线）
