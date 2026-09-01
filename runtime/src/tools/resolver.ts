@@ -54,21 +54,28 @@ export function enrichSchemas(tools: RuntimeTool[], gatewayTools: GatewayToolInf
     const real = byKey.get(`${t.server}/${t.tool}`)
     return real ? { ...t, parameters: real.input_schema ?? t.parameters } : t
   })
-  // 2. 把 gateway 中有但 capabilities 未列出的新工具加进来
-  const existingKeys = new Set(tools.map(t => `${t.server}/${t.tool}`))
+  // 2. 把 gateway 中有但 capabilities 未列出的新工具加进来。
+  //    键集与 fnName 集必须随追加实时更新：gateway 聚合层若返回重复条目，同一 function 名
+  //    进系统提示会被上游模型 API 整包 400 拒绝（2026-09-01「AI 死了」：scholar_search_papers
+  //    duplicated），宁可少一个工具也不能让重名工具污染提示。
+  const seenKeys = new Set(tools.map(t => `${t.server}/${t.tool}`))
+  const seenFnNames = new Set(enriched.map(t => t.fnName))
   for (const g of gatewayTools) {
     const key = `${g.server}/${g.name}`
-    if (!existingKeys.has(key)) {
-      enriched.push({
-        fnName: `${g.server}_${g.name}`.replace(/[^a-zA-Z0-9_]/g, '_'),
-        server: g.server,
-        tool: g.name,
-        capability: g.server,
-        description: g.description,
-        parameters: g.input_schema ?? { type: 'object', properties: {} },
-        confirmationRequired: true, // 第三方工具默认需要确认（安全方向）
-      })
-    }
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
+    const fnName = `${g.server}_${g.name}`.replace(/[^a-zA-Z0-9_]/g, '_')
+    if (seenFnNames.has(fnName)) continue
+    seenFnNames.add(fnName)
+    enriched.push({
+      fnName,
+      server: g.server,
+      tool: g.name,
+      capability: g.server,
+      description: g.description,
+      parameters: g.input_schema ?? { type: 'object', properties: {} },
+      confirmationRequired: true, // 第三方工具默认需要确认（安全方向）
+    })
   }
   return enriched
 }

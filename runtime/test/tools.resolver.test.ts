@@ -25,6 +25,28 @@ describe('§5 Tool Resolver（capability → MCP tool）', () => {
     expect(time?.parameters).toMatchObject({ type: 'object', properties: {} }) // 占位保留
   })
 
+  it('enrichSchemas 对 gateway 重复条目去重：同名 function 永不进系统提示（2026-09-01「AI 死了」回归）', () => {
+    // chat 泳道不含 research，scholar/* 走「gateway 独有工具」追加路径；
+    // gateway 聚合层若把同一 server 列两遍，追加必须只收第一份
+    const tools = toolsForLane('chat')
+    const duplicated = ['search_papers', 'get_paper_details'].flatMap(name => [
+      { server: 'scholar', name, description: 'd', input_schema: { type: 'object', properties: {} } },
+      { server: 'scholar', name, description: 'd', input_schema: { type: 'object', properties: {} } },
+    ])
+    const enriched = enrichSchemas(tools, duplicated)
+    const fnNames = enriched.map(t => t.fnName)
+    expect(new Set(fnNames).size).toBe(fnNames.length)
+    expect(enriched.filter(t => t.fnName === 'scholar_search_papers')).toHaveLength(1)
+  })
+
+  it('enrichSchemas 追加键不同但 fnName 与 capability 工具撞名时跳过', () => {
+    const tools = toolsForLane('chat') // 已有 time_get_current_time（server=core）
+    const enriched = enrichSchemas(tools, [
+      { server: 'time', name: 'get_current_time', description: '', input_schema: { type: 'object', properties: {} } },
+    ])
+    expect(enriched.filter(t => t.fnName === 'time_get_current_time')).toHaveLength(1)
+  })
+
   it('§4.6 确认要求按工具级 override 解析（mail.send_mail ✓ / search_mail ✗）', () => {
     const tools = toolsForLane('tool')
     expect(tools.find(t => t.fnName === 'mail_send_mail')?.confirmationRequired).toBe(true)

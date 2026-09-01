@@ -242,7 +242,8 @@ installBuiltin('registry', {
 /** /health 报告用的合并视图（static + dynamic）；当 includeHealth=true 做一次低延时探活。 */
 async function allServers(includeHealth = false): Promise<{ name: string; type: string; enabled: boolean; connected: boolean; tools: number | null; last_error: string | null }[]> {
   const primary = [...Object.keys(config.mcpServers).filter(n => !dynamicServers.has(n)), ...dynamicServers.keys()]
-  const names = [...primary, ...Object.keys(BUILTIN_SERVERS)]
+  // 与 allTools 同一去重规则：static 配置里的 builtin 不与 BUILTIN_SERVERS 重复列出
+  const names = [...primary, ...Object.keys(BUILTIN_SERVERS).filter(n => !primary.includes(n))]
   const out = []
   for (const name of names) {
     const builtin = isBuiltin(name)
@@ -287,7 +288,11 @@ async function listToolsFor(server: string): Promise<ToolInfo[]> {
 }
 
 async function allTools(): Promise<ToolInfo[]> {
-  const names = [...Object.entries(config.mcpServers).filter(([, c]) => c.enabled !== false).map(([n]) => n), ...dynamicServers.keys(), ...Object.keys(BUILTIN_SERVERS)]
+  // server 聚合必须按名去重：static 配置显式声明的 builtin 与 BUILTIN_SERVERS 重叠，
+  // 各聚合一次会让同一工具在 /tools 出现两遍（2026-09-01 重复 function 名事故的源头）
+  const staticNames = Object.entries(config.mcpServers).filter(([, c]) => c.enabled !== false).map(([n]) => n)
+  const dynamicNames = [...dynamicServers.keys()]
+  const names = [...staticNames, ...dynamicNames, ...Object.keys(BUILTIN_SERVERS).filter(n => !staticNames.includes(n) && !dynamicNames.includes(n))]
   const out: ToolInfo[] = []
   for (const server of names) {
     try {
