@@ -27,6 +27,7 @@ interface ServerConfig {
   url?: string
   enabled?: boolean
   skill_document?: string
+  headers?: Record<string, string>
   /** 动态注册的 remote server 实际连接成功用的传输方式（register 时探测一次记入） */
   transport?: 'streamable-http' | 'sse'
 }
@@ -68,18 +69,18 @@ function serverConfig(name: string): ServerConfig | undefined {
  * remote 传输探测（pi-mcp 借鉴）：顺序尝试 Streamable HTTP → SSE，谁先建连成功用谁。
  * 旧 MCP 服务多半只实现了 SSE；新协议绝大多数人只跑 Streamable HTTP——两边各试一次就分清了。
  */
-async function probeRemote(url: string): Promise<{ client: Client; transport: 'streamable-http' | 'sse' }> {
+async function probeRemote(url: string, headers?: Record<string, string>): Promise<{ client: Client; transport: 'streamable-http' | 'sse' }> {
   const target = new URL(url)
   const client = new Client({ name: 'mnemosyne-mcp-gateway', version: '0.1.0' })
   try {
     // TODO(broker): OAuth 型远程 server 在此注入 Broker 短票 header（§5.3）
-    await client.connect(new StreamableHTTPClientTransport(target))
+    await client.connect(new StreamableHTTPClientTransport(target, { requestInit: { headers } }))
     return { client, transport: 'streamable-http' }
   } catch (err) {
     await client.close().catch(() => undefined)
     const sseClient = new Client({ name: 'mnemosyne-mcp-gateway', version: '0.1.0' })
     try {
-      await sseClient.connect(new SSEClientTransport(target))
+      await sseClient.connect(new SSEClientTransport(target, { requestInit: { headers } }))
       return { client: sseClient, transport: 'sse' }
     } catch (sseErr) {
       await sseClient.close().catch(() => undefined)
@@ -105,7 +106,7 @@ async function getConnection(server: string): Promise<Conn> {
     await local.connect(new StdioClientTransport({ command, args, stderr: 'ignore' }))
     client = local
   } else if (cfg.type === 'remote' && cfg.url) {
-    client = (await probeRemote(cfg.url)).client
+    client = (await probeRemote(cfg.url, cfg.headers)).client
   } else {
     throw new Error(`bad server config: ${server}`)
   }
@@ -143,12 +144,16 @@ setInterval(() => { checkHealth().catch(() => undefined) }, 30_000).unref()
 // ── 动态注册（pi-mcp 借鉴：URL 必须显式给出）────────────────────────────────
 
 /** 动态注册 remote server：URL 必填、可探测 transmissions、oauth/skill_document 可选省略。 */
-async function registerServer(name: string, url: string, opts: { oauth?: boolean; skill_document?: string } = {}): Promise<{ name: string; transport: 'streamable-http' | 'sse'; tools: ToolInfo[] }> {
+async function registerServer(
+  name: string,
+  url: string,
+  opts: { oauth?: boolean; skill_document?: string; headers?: Record<string, string> } = {},
+): Promise<{ name: string; transport: 'streamable-http' | 'sse'; tools: ToolInfo[] }> {
   // builtin override：同名 builtin 会永久遮蔽 dynamic 定义，注册前就拒掉
   if (name in (config.mcpServers ?? {})) throw new Error(`name collides with static server: ${name}`)
   if (name in BUILTIN_SERVERS) throw new Error(`name collides with builtin server: ${name}`)
   if (!/^https?:\/\//.test(url)) throw new Error('url must start with http(s)')
-  const probed = await probeRemote(url)
+  const probed = await probeRemote(url, opts.headers)
   dynamicServers.delete(name)
   conns.delete(name)
   toolsCache.delete(name)
@@ -159,6 +164,7 @@ async function registerServer(name: string, url: string, opts: { oauth?: boolean
     enabled: true,
     transport: probed.transport,
     skill_document: opts.skill_document,
+    headers: opts.headers,
   })
   const tools = (await probed.client.listTools()).tools ?? []
   return { name, transport: probed.transport, tools: tools.map(t => ({ server: name, name: t.name, description: t.description ?? '', input_schema: t.inputSchema })) }
@@ -188,13 +194,14 @@ installBuiltin('registry', {
     },
     {
       name: 'register_server',
-      description: 'Register a remote MCP server by URL (tensed URL 必须给出); detects Streamable HTTP vs SSE automatically',
+      description: 'Register a remote MCP server by URL (tensed URL 必须给出); detects Streamable HTTP vs SSE automatically; optional headers for auth (e.g., Authorization Bearer token)',
       input_schema: {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Alphanumeric server handle (max 32 chars; this is what /call uses)' },
           url: { type: 'string', description: 'MCP endpoint URL (required; AI 需要外部渠道/用户给出了解才知)' },
           skill_document: { type: 'string', description: 'Optional Markdown usage note for this server' },
+          headers: { type: 'object', description: 'Optional HTTP headers (e.g., { Authorization: "Bearer <token>" }) for servers requiring authentication' },
         },
         required: ['name', 'url'],
       },
@@ -225,7 +232,7 @@ installBuiltin('registry', {
   call: async (tool, args) => {
     const s = (k: string) => String(args[k] ?? '')
     if (tool === 'list_servers') return JSON.stringify(await allServers(args.include_health === true), null, 2)
-    if (tool === 'register_server') return JSON.stringify(await registerServer(s('name'), s('url'), { skill_document: args.skill_document ? String(args.skill_document) : undefined }), null, 2)
+    if (tool === 'register_server') return JSON.stringify(await registerServer(s('name'), s('url'), { skill_document: args.skill_document ? String(args.skill_document) : undefined, headers: args.headers as Record<string, string> | undefined }), null, 2)
     if (tool === 'unregister_server') { await unregisterServer(s('name')); return `unregistered: ${s('name')}` }
     if (tool === 'invoke') return await callTool(s('server'), s('tool'), (args.args as Record<string, unknown>) ?? {})
     throw new Error(`unknown registry tool: ${tool}`)
@@ -335,10 +342,10 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true, servers: await allServers(false) })
     }
     if (req.method === 'POST' && url.pathname === '/register') {
-      const body = JSON.parse((await readBody(req)) || '{}') as { name?: string; url?: string; skill_document?: string }
+      const body = JSON.parse((await readBody(req)) || '{}') as { name?: string; url?: string; skill_document?: string; headers?: Record<string, string> }
       if (!body.name || !/^[a-zA-Z0-9_-]{1,32}$/.test(body.name)) return json(res, 400, { error: 'name must be alphanumeric (max 32)' })
       if (!body.url || !/^https?:\/\//.test(body.url)) return json(res, 400, { error: 'url must start with http(s)' })
-      const meta = await registerServer(body.name, body.url, { skill_document: body.skill_document })
+      const meta = await registerServer(body.name, body.url, { skill_document: body.skill_document, headers: body.headers })
       return json(res, 200, { ok: true, name: meta.name, transport: meta.transport, tools: meta.tools.map(t => t.name) })
     }
     if (req.method === 'POST' && url.pathname === '/unregister') {
