@@ -377,3 +377,32 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[mcp-gateway] listening on :${PORT}; servers: ${Object.keys(config.mcpServers).join(', ')}`)
 })
+
+// ── 环境变量预注册（动态注册的持久化路径）─────────────────────────────────────
+/**
+ * MCP_BOOT_REGISTRATIONS：JSON 数组 [{ name, url, headers?, skill_document? }]。
+ * 动态注册本在内存、重启即清空（2026-09-01 Smithery 121 工具随滚动部署蒸发）；
+ * headers 可带 Bearer token，故清单只放 env（不进 config 文件/git）。
+ * 单个失败只记日志不拒启——远端抖动不该把网关拖进 CrashLoop。
+ */
+async function bootRegistrations(): Promise<void> {
+  const raw = process.env.MCP_BOOT_REGISTRATIONS
+  if (!raw) return
+  let list: { name: string; url: string; headers?: Record<string, string>; skill_document?: string }[]
+  try {
+    list = JSON.parse(raw) as typeof list
+  } catch (e) {
+    console.error('[gateway] MCP_BOOT_REGISTRATIONS 不是合法 JSON，跳过:', e instanceof Error ? e.message : e)
+    return
+  }
+  for (const item of Array.isArray(list) ? list : []) {
+    try {
+      const meta = await registerServer(item.name, item.url, { headers: item.headers, skill_document: item.skill_document })
+      console.log(`[gateway] boot-registered ${meta.name} (${meta.transport}, ${meta.tools.length} tools)`)
+    } catch (e) {
+      console.error(`[gateway] boot-register ${item.name} failed:`, e instanceof Error ? e.message : e)
+    }
+  }
+}
+
+void bootRegistrations()
