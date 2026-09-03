@@ -413,13 +413,21 @@ The Context Builder is **the core brain of Mnemosyne**. It assembles the final c
 
 **原则二：promptText 是原子单元。** 它是引擎渲染的单条字符串，内含窗口安全阀指令（「请勿基于这些论断干预」）、漂移警示、再提邀请——这些都是安全语义，**不允许按字符截断**。实测体积 1–2K（top-8 线索 + top-8 论断 + 5 碎片 + 7 印章），预算上限 4K，永远装得下，永远 pin 住。
 
-**原则三：装配顺序服务前缀缓存**（对齐 twig host-loop 约定）：
+**原则三：装配顺序服务前缀缓存**（2026-09-03 R1 修订：stable→volatile，叙事包移出 system）：
 
 ```
-system 消息 = [稳定 persona 段] + [语音人格约束（若启用）] + [Capability schemas（相对静态）] + [叙事 promptText（每轮变动，固定在最后）]
+消息序列 = [system: 稳定 persona 段 + 语音人格约束（若启用） + Capability schemas（相对静态）]
+         → [近期对话历史]
+         → [system: 叙事 promptText（每轮变动，独立消息）]
+         → [当前用户消息]
 ```
 
-稳定前缀在前、变动段在末尾，provider 前缀缓存（OpenAI/Anthropic cache_control）在注入点之前的部分保持命中。cache_control 断点标在 persona 段末尾。
+v0.3.0 原版把 promptText 固定在 system 消息末尾——但叙事包含 recentStamps 等逐轮漂移数据，夹在
+persona 与对话历史之间意味着叙事一变，历史全部脱离 provider 前缀缓存重新计费。修订后：稳定前缀
+（persona/schemas）与对话历史同属可命中的稳定前缀，逐轮变化的小段叙事垫在最后，provider 前缀缓存
+（Kimi/DeepSeek 自动、Anthropic cache_control）的命中面最大化。cache_control 断点只标稳定 system
+段末尾、不覆盖叙事包（2026-09-03 R2）。危机指令沿用「替换叙事包」语义，随叙事包槽位置于历史之后
+（危机路径零缓存，无缓存影响；靠近用户消息反而强化优先级）。
 
 ### 3.3 叙事上下文获取（VULN-01 修复，真实契约）
 
@@ -440,7 +448,7 @@ interface TwigContextPacket {
 要点：
 - **读无副作用**（上游 P1-2：getContextPacket 不执行 tick），可每轮同步调用，成本为本地计算，无 LLM。
 - **无 current_message 参数**。叙事包是与当轮消息无关的全量状态快照（top-8/top-8/5），这正是「叙事而非检索」的语义——不要在适配层伪造动态检索。
-- **注入方式唯一**：`promptText` 整体置于 system 消息末尾（原则三）。v0.2.1 的 Option B（自行拼装结构化字段）废止——promptText 已含窗口指令/漂移警示/再提邀请的自然语言表述，自拼装必然漏掉安全阀。结构化字段供 Dashboard 与缓存指纹使用，不进 prompt。
+- **注入方式唯一**：`promptText` 整体注入，位置由原则三（2026-09-03 R1 修订）定为历史之后的独立 system 消息。v0.2.1 的 Option B（自行拼装结构化字段）废止——promptText 已含窗口指令/漂移警示/再提邀请的自然语言表述，自拼装必然漏掉安全阀。结构化字段供 Dashboard 与缓存指纹使用，不进 prompt。
 - 会话映射：twig `userId` = Mnemosyne `users.eternal_id`。**一人一份叙事，跨 client 跨 session 共享**——这是设计目标而非泄露。v0.2.1 §3.7 的「session_type filtering 防跨 session 泄露」一行废止：Twig 无 session 命名空间，叙事连续性本来就是卖点；隔离边界在**用户**维度，由 Identity Layer 强制。
 
 
@@ -493,19 +501,21 @@ class ContextBuilder {
       : await this.twig.getContextPacket(ctx.user.eternal_id)
     const capabilities = await this.capabilityRouter.getForLane(ctx.user, ctx.lane)
 
-    const system =
+    const system =                                  // 稳定段（2026-09-03 R1：叙事包不再并入）
       persona +
-      this.formatCapabilities(capabilities, budget.capabilities) +
-      (ctx.crisis ? CRISIS_PROMPT : packet!.promptText)
+      this.formatCapabilities(capabilities, budget.capabilities)
+    const volatileSlot =                            // 叙事包/危机指令槽（历史之后，原则三修订）
+      ctx.crisis ? CRISIS_PROMPT : packet!.promptText
 
-    const conversationBudget = window - estimateTokens(system)
+    const conversationBudget = window - estimateTokens(system) - estimateTokens(volatileSlot)
       - budget.currentMessage - budget.outputReserve - budget.safetyBuffer
     const recent = await this.getRecentMessages(ctx.session.id, conversationBudget)
 
     return {
       messages: [
-        { role: 'system', content: system, cache_control: { type: 'ephemeral' } },
+        { role: 'system', content: system, cache_control: { type: 'ephemeral' } },  // R2：断点只标稳定段
         ...recent,
+        ...(volatileSlot ? [{ role: 'system', content: volatileSlot }] : []),
         { role: 'user', content: ctx.currentMessage }
       ],
       narrativeVersion: packet
@@ -1070,6 +1080,8 @@ function buildCacheKey(
 }
 ```
 
+> **2026-09-03 R3 注记**：`params.temperature` 必须取**实际生效**的采样参数（`clampTemperature` 收敛后的值，如推理型模型强制 1），而非客户端原始请求值——否则写入键 ≠ 读取键，且不同客户端传参差异会把本可命中的请求打散。
+
 ### 7.2 Exact Cache
 
 键见 §7.1。TTL 3600s。命中条件：同用户、同叙事版本、同规范化消息、同模型同参数——四者齐备。任一漂移即 MISS，这是特性不是损耗：个人运行时里「同一句话在不同人生阶段得到同一回答」恰恰是叙事系统要消灭的事。
@@ -1103,8 +1115,9 @@ interface SemanticCacheEntry {
 
 ### 7.4 Provider Prompt Cache
 
-- 稳定 persona + 静态 capability schemas 在前，promptText 固定末尾（§3.2 原则三），`cache_control` 断点标在 persona 段末。
-- 该层是 provider 侧行为，透明、无跨用户风险，保持启用。
+- 装配顺序 stable→volatile（§3.2 原则三 2026-09-03 R1 修订）：稳定 persona + 静态 capability schemas + 对话历史构成稳定前缀，逐轮漂移的 promptText 独立消息垫在历史之后；`cache_control` 断点只标稳定 system 段末（2026-09-03 R2，叙事包不含在断点内）。
+- 该层是 provider 侧行为，透明、无跨用户风险，保持启用。Kimi/DeepSeek/OpenAI 的自动前缀缓存按稳定前缀自然命中，无需配置；观测走 `usage_logs.cache_read_tokens`（脚本 `scripts/cache-report.sql`）。
+- LiteLLM 代理层**不配** response cache（2026-09-03 R4 决策）：其键含全量 messages，对话流量命中率≈0；redis-semantic 有跨话题误匹配（BerriAI/litellm#12234），陪伴场景不可接受。
 
 ```typescript
 function addCacheControl(messages: Message[]): Message[] {

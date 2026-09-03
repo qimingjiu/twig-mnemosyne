@@ -1,4 +1,10 @@
 # litellm.yaml（compose 挂载为 /app/config.yaml）— §6.2 + §6.4（Model Gateway = 管道；路由决策在 Mnemosyne TS 侧，§6.3）
+#
+# 缓存决策（2026-09-03 R4）：故意不配 litellm_settings.cache。
+# - response cache 的键含全量 messages：对话流量逐轮漂移，命中率≈0，只占 Redis；
+# - redis-semantic 有跨话题误匹配（BerriAI/litellm#12234），陪伴场景答错代价不可接受；
+# - 省钱主战场是厂商原生前缀缓存（Kimi/DeepSeek 自动、Anthropic cache_control），
+#   由 Runtime 装配顺序保证（builder.ts stable→volatile），用 usage_logs.cache_read_tokens 观测。
 model_list:
   - model_name: gpt-4o
     litellm_params:

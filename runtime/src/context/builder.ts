@@ -98,23 +98,29 @@ export class ContextBuilder {
     const caps = getForLane(ctx.lane)
     const capText = formatCapabilities(caps, budget.capabilities, estimateTokens)
 
-    const parts = [
+    // 装配顺序 stable→volatile（2026-09-03 R1，替代 §3.2 原则三旧 layout）：
+    // persona/capabilities 稳定；promptText 含 recentStamps 等每轮漂移数据。旧 layout 把叙事包夹在
+    // system 尾部、紧贴对话历史——叙事一变，历史全部脱离厂商前缀缓存重新计费。现在叙事包独立成
+    // system 消息置于历史之后、当前消息之前；危机指令语义是「替换叙事包」，随叙事包槽位走（零缓存路径，
+    // 位置靠近用户消息反而强化优先级）。
+    const stableParts = [
       persona,
       ...(ctx.voice ? [VOICE_PERSONA_PROMPT] : []),
       ...(capText ? [capText] : []),
-      ctx.crisis ? `${CRISIS_PROMPT}\n\n${DEFAULT_CRISIS_RESOURCES}` : tail,
     ].filter(s => s.length > 0)
-    const system = parts.join('\n\n')
+    const system = stableParts.join('\n\n')
+    const volatile = ctx.crisis ? `${CRISIS_PROMPT}\n\n${DEFAULT_CRISIS_RESOURCES}` : tail
 
-    // §3.5：conversationBudget = window - estimateTokens(system) - current - outputReserve - safetyBuffer
-    const systemTokens = estimateTokens(system)
+    // §3.5：conversationBudget = window - (稳定 system + 易变段) - current - outputReserve - safetyBuffer
+    // 总减项与旧 layout 相同，只是位置拆开
+    const systemTokens = estimateTokens(system) + estimateTokens(volatile)
     const conversationBudget = Math.max(
       0,
       window - systemTokens - budget.currentMessage - budget.outputReserve - budget.safetyBuffer,
     )
     const recent: RecentMessage[] = await getRecentMessages(this.db, ctx.session.id, conversationBudget)
 
-    // cache_control 断点标在 system 段（persona 末即稳定前缀末，§3.2 原则三）。
+    // R2：cache_control 断点只标稳定段末——叙事漂移不再作废整段 Anthropic 前缀缓存。
     // 仅 Anthropic 系支持消息级 cache_control；LiteLLM 对其他 provider 会丢弃该字段。
     const systemMsg: OutgoingMessage = {
       role: 'system',
@@ -122,16 +128,22 @@ export class ContextBuilder {
       ...(spec.provider === 'anthropic' ? { cache_control: { type: 'ephemeral' as const } } : {}),
     }
 
+    const messages: OutgoingMessage[] = [
+      systemMsg,
+      ...recent.map(m => ({
+        role: m.role,
+        content: m.content,
+        ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
+        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+      }) as OutgoingMessage),
+    ]
+    // narrativeUnavailable（twig 故障 fail-open）时 volatile 为空，不追加
+    if (volatile.length > 0) {
+      messages.push({ role: 'system', content: volatile })
+    }
+
     return {
-      messages: [
-        systemMsg,
-        ...recent.map(m => ({
-          role: m.role,
-          content: m.content,
-          ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
-          ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
-        }) as OutgoingMessage),
-      ],
+      messages,
       narrativeVersion: packet ? narrativeVersionOf(packet.promptText) : 'crisis',
       budget,
       packet,
