@@ -23,8 +23,8 @@ web/
 | 页面 | 状态 | 数据源 |
 |---|---|---|
 | index 星海航图 | ✅ 实时 | `/v1/web/memory/context` + `/v1/web/metrics/summary` + `/v1/web/feed`（航海图 SVG 为示意插画） |
-| book 记忆书 | ✅ 实时 | `/v1/web/memory/journal\|soliloquy\|notes\|stamps` + context |
-| explorer 制图师 | ✅ 实时 | `/v1/web/memory/state` + `/v1/web/memory/claims` + `/v1/web/memory/audit/last`（记忆搬家用 CLI） |
+| book 记忆书 | ✅ 实时+可写 | 读：`/v1/web/memory/journal\|soliloquy\|notes\|stamps` + context；写：✎ 便签（POST `/v1/web/memory/notes`） |
+| explorer 制图师 | ✅ 实时+可写 | 读：`/v1/web/memory/state` + `/v1/web/memory/claims` + `/v1/web/memory/audit/last`；写：论断否决（`/claims/contest`）+ 碎片本人修正（`/correct`）——原文永不改动；记忆搬家用 CLI（§23） |
 | console 控制台 | ✅ 实时 | 对话面：`/v1/chat/completions` **真流式**（web client_key 直连 + Caddy 同域反代；不传 session id，runtime 复用共享 personal session——与 TG 同一段关系上下文）+ `/v1/web/metrics/summary` 24h 真数据（fallback 链 / provider 健康 / 缓存命中 / 渡鸦配额）。音频帧暂提示「TG 收听」（即焚键取回端点待 v1.1） |
 | observatory / forge / settings | 静态稿 | 待后续阶段（需 admin 聚合端点 / 配置读写） |
 

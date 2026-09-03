@@ -150,8 +150,42 @@ function setupTabs() {
   return loaded
 }
 
+/* ---------- 便签写作（POST /v1/web/memory/notes，BFF 模式） ---------- */
+function setupNoteComposer() {
+  const toggle = document.getElementById('note-compose-toggle')
+  const panel = document.getElementById('note-compose')
+  const content = document.getElementById('note-content')
+  const msg = document.getElementById('note-msg')
+  const submit = document.getElementById('note-submit')
+  toggle.addEventListener('click', () => {
+    panel.classList.toggle('hidden')
+    if (!panel.classList.contains('hidden')) content.focus()
+  })
+  document.getElementById('note-cancel').addEventListener('click', () => {
+    panel.classList.add('hidden')
+    msg.textContent = ''
+  })
+  submit.addEventListener('click', async () => {
+    const text = content.value.trim()
+    if (!text) { msg.textContent = '写点什么再放进来。'; return }
+    submit.disabled = true
+    try {
+      await api('/v1/web/memory/notes', { method: 'POST', body: { content: text } })
+      content.value = ''
+      msg.textContent = ''
+      panel.classList.add('hidden')
+      await renderNotes() // 就地刷新，无需整页
+    } catch (e) {
+      msg.textContent = `放入失败：${e.message}`
+    } finally {
+      submit.disabled = false
+    }
+  })
+}
+
 async function main() {
   const loaded = setupTabs()
+  setupNoteComposer()
   try {
     await renderJournal()
     loaded.add('journal')

@@ -102,6 +102,11 @@ export class TwigAdapter {
     return this.call('POST', '/v1/correct', { userId, fragmentId, note })
   }
 
+  /** 用户手写便签（§8.4：便签=用户自己写的小事，不是 AI 的工具）。 */
+  createNote(userId: string, content: string): Promise<TwigNote> {
+    return this.call<TwigNote>('POST', '/v1/notes', { userId, content })
+  }
+
   health(): Promise<TwigHealth> {
     return this.call<TwigHealth>('GET', '/health')
   }

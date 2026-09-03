@@ -98,7 +98,7 @@
               <span class="sec-note">GET /v1/claims · 渲染 promptText 只用 active</span>
             </div>
             <table class="tbl mt8">
-              <thead><tr><th>论断</th><th style="width:150px;">conviction</th><th>boundary</th><th>状态</th></tr></thead>
+              <thead><tr><th>论断</th><th style="width:150px;">conviction</th><th>boundary</th><th>状态</th><th style="width:64px;">操作</th></tr></thead>
               <tbody id="claims-tbody"><tr><td colspan="4" class="stat-sub">加载中…</td></tr></tbody>
             </table>
             <div class="stat-sub mt8">contested 论断不进 promptText，相关工具域降级 askUserFirst（§4.7）；remention 邀请 30 天后失效。</div>
@@ -118,7 +118,7 @@
               <span class="sec-note" id="fragments-note">用户原文 · ingest ≤4000 字符/chunk · per-user 限速 429</span>
             </div>
             <table class="tbl mt8">
-              <thead><tr><th>时间</th><th>原文摘录</th><th>tags</th><th>来源</th></tr></thead>
+              <thead><tr><th>时间</th><th>原文摘录</th><th>tags</th><th>来源</th><th style="width:64px;">操作</th></tr></thead>
               <tbody id="fragments-tbody"><tr><td colspan="4" class="stat-sub">加载中…</td></tr></tbody>
             </table>
             <div class="stat-sub mt8">导入碎片带 batch:&lt;id&gt; 标记，可整体追溯、整体 contest（§23.3）。碰撞判定在 reflect 时发生，不在摄入时。</div>

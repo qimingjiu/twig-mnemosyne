@@ -217,6 +217,36 @@ export function registerWebRoutes(app: FastifyInstance, deps: WebDeps): void {
     return deps.twig.calendar(u.eternal_id, q.month ?? undefined)
   }))
 
+  // —— 写操作（2026-09-03）：沿用「runtime 校验 + 服务端持 twig 凭证」模式，userId 一律钉死认证用户 ——
+  // 原文永不改动：correct 追加本人修正标注 / contest 降级论断（twig 侧语义）；便签是用户手写小事（§8.4）。
+  const ContestSchema = z.object({ claim_id: z.string().min(1).max(128), note: z.string().min(1).max(2000) })
+  const CorrectSchema = z.object({ fragment_id: z.string().min(1).max(128), note: z.string().min(1).max(2000) })
+  const NoteCreateSchema = z.object({ content: z.string().min(1).max(4000) })
+
+  const writeProxy = <T>(schema: z.ZodTypeAny, fn: (user: UserRow, body: T) => Promise<unknown>) =>
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const ctx = await requireUser(deps, req, reply)
+      if (!ctx) return
+      const parsed = schema.safeParse(req.body)
+      if (!parsed.success) {
+        return reply.code(400).send({ error: { message: 'bad_request', detail: parsed.error.message } })
+      }
+      try {
+        await fn(ctx.user, parsed.data as T)
+        return { ok: true }
+      } catch (e) {
+        // 404 = 目标不存在（claim/fragment 已被上游合并或清除），透传；其余按纪律脱敏为 502
+        if (e instanceof TwigError && e.status === 404) {
+          return reply.code(404).send({ error: { message: 'not_found', type: 'not_found' } })
+        }
+        twigFailure(e, reply)
+      }
+    }
+
+  app.post('/v1/web/memory/claims/contest', writeProxy(ContestSchema, (u, b: z.infer<typeof ContestSchema>) => deps.twig.contest(u.eternal_id, b.claim_id, b.note)))
+  app.post('/v1/web/memory/correct', writeProxy(CorrectSchema, (u, b: z.infer<typeof CorrectSchema>) => deps.twig.correct(u.eternal_id, b.fragment_id, b.note)))
+  app.post('/v1/web/memory/notes', writeProxy(NoteCreateSchema, (u, b: z.infer<typeof NoteCreateSchema>) => deps.twig.createNote(u.eternal_id, b.content)))
+
   // —— 24h 用量聚合（user 侧视图；走 idx_usage_user_time）——
   app.get('/v1/web/metrics/summary', async (req, reply) => {
     const ctx = await requireUser(deps, req, reply)

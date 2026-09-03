@@ -57,8 +57,21 @@
         <div class="grid g-2" id="soliloquy-list"><div class="stat-sub">切换到本页签时加载</div></div>
       </div>
 
-      <!-- 便签：用户自己写的小事 -->
+      <!-- 便签：用户自己写的小事（写入口经 BFF POST /v1/web/memory/notes） -->
       <div class="tab-panel" id="tab-notes">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+          <button class="btn" id="note-compose-toggle" style="padding:3px 14px;font-size:12px;">✎ 写便签</button>
+        </div>
+        <div class="card card-pad hidden" id="note-compose" style="border-color:var(--gold);margin-bottom:12px;">
+          <div class="field"><label>小事一件（≤4000 字符 · 便签是你写给自己的，引擎也会读到）</label>
+            <textarea id="note-content" rows="3" style="width:100%;border:1px solid var(--hairline-2);border-radius:6px;padding:8px 10px;font:400 13px/1.6 var(--f-body);color:var(--ink);background:var(--panel);resize:vertical;" placeholder="今天……"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:8px;">
+            <span class="stat-sub" id="note-msg"></span>
+            <button class="btn btn-ghost" id="note-cancel" style="padding:3px 12px;font-size:11.5px;">收起</button>
+            <button class="btn" id="note-submit" style="padding:3px 12px;font-size:11.5px;">放进记忆书</button>
+          </div>
+        </div>
         <div class="grid g-3" id="notes-list"><div class="stat-sub">切换到本页签时加载</div></div>
       </div>
 

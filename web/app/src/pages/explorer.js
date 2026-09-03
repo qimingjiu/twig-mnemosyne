@@ -46,6 +46,100 @@ function renderCounts(state, claims, auditRecord) {
 
 /* ---------- 层位面板 ---------- */
 
+/* ---------- 写操作：contest（否决论断）/ correct（本人修正标注） ----------
+   原文永不改动：contest 降级论断（不进 promptText、相关工具域 askUserFirst §4.7）；
+   correct 在碎片上追加本人标注。两式都走 BFF（runtime 校验 + 服务端持 twig 凭证）。 */
+
+let claimsCache = []
+let editRow = null // 当前展开的编辑行（同时只允许一个）
+
+function closeEditRow() {
+  editRow?.remove()
+  editRow = null
+}
+
+function openEditRow(tbody, afterRow, placeholder, confirmLabel, onSubmit) {
+  closeEditRow()
+  const tr = document.createElement('tr')
+  tr.innerHTML = `
+    <td colspan="5" style="background:var(--panel-2);">
+      <textarea class="edit-note" rows="2" placeholder="${esc(placeholder)}"
+        style="width:100%;border:1px solid var(--hairline-2);border-radius:6px;padding:6px 8px;font:400 12.5px/1.6 var(--f-body);color:var(--ink);background:var(--panel);resize:vertical;"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+        <button class="btn btn-ghost" data-act="cancel" style="padding:2px 10px;font-size:11px;">取消</button>
+        <button class="btn" data-act="confirm" style="padding:2px 10px;font-size:11px;">${esc(confirmLabel)}</button>
+      </div>
+      <div class="edit-msg mono" style="margin-top:4px;font-size:10.5px;color:var(--terra);"></div>
+    </td>`
+  afterRow.after(tr)
+  editRow = tr
+  tr.querySelector('textarea').focus()
+  tr.addEventListener('click', async e => {
+    const act = e.target.closest('button')?.dataset.act
+    if (act === 'cancel') return closeEditRow()
+    if (act !== 'confirm') return
+    const note = tr.querySelector('textarea').value.trim()
+    if (!note) {
+      tr.querySelector('.edit-msg').textContent = '写一句理由——这是给未来留的证词。'
+      return
+    }
+    const btn = tr.querySelector('[data-act="confirm"]')
+    btn.disabled = true
+    try {
+      await onSubmit(note)
+      closeEditRow()
+    } catch (err) {
+      btn.disabled = false
+      tr.querySelector('.edit-msg').textContent = `失败：${err.message}`
+    }
+  })
+}
+
+function actionBtn(cls, id, label) {
+  return `<button class="btn btn-ghost ${cls}" data-${cls}="${esc(id)}" style="padding:1px 8px;font-size:10.5px;">${label}</button>`
+}
+
+const wired = new WeakSet() // tbody 只挂一次监听（renderClaims 会被 contest 后重跑）
+
+function wireWriteActions(tbody) {
+  if (wired.has(tbody)) return
+  wired.add(tbody)
+  tbody.addEventListener('click', e => {
+    const contestBtn = e.target.closest('[data-contest]')
+    const correctBtn = e.target.closest('[data-correct]')
+    if (contestBtn) {
+      const id = contestBtn.dataset.contest
+      const row = contestBtn.closest('tr')
+      openEditRow(tbody, row, '为什么否决？这句话将不再影响他对你的理解（可留证词）。', '确认否决', async note => {
+        await api('/v1/web/memory/claims/contest', { method: 'POST', body: { claim_id: id, note } })
+        const c = claimsCache.find(x => x.id === id)
+        if (c) c.status = 'contested'
+        renderClaims(claimsCache)
+        renderCountsDeep()
+      })
+    } else if (correctBtn) {
+      const id = correctBtn.dataset.correct
+      const row = correctBtn.closest('tr')
+      openEditRow(tbody, row, '哪里记错了？修正会标注在原文旁，原文不动。', '追加修正', async note => {
+        await api('/v1/web/memory/correct', { method: 'POST', body: { fragment_id: id, note } })
+        row.querySelector('td:nth-child(2)').innerHTML =
+          `<span style="border-bottom:1px dashed var(--olive);">「${esc(row.querySelector('td:nth-child(2)').textContent.replace(/^「|」$/g, ''))}」</span>
+           <span class="badge b-ok" style="margin-left:6px;">已标注</span>`
+      })
+    }
+  })
+}
+
+function renderCountsDeep() {
+  // contest 后刷新水位行（复用 main() 的数据形状）
+  const active = claimsCache.filter(c => c.status === 'active').length
+  const contested = claimsCache.filter(c => c.status === 'contested').length
+  const remention = claimsCache.filter(c => c.rementionInvitation && c.rementionInvitation.status !== 'redeemed').length
+  document.getElementById('stat-claims').innerHTML = `${active} <small>active</small>`
+  document.getElementById('stat-claims-sub').innerHTML =
+    `<span style="color:var(--terra)">${contested} contested</span> · ${remention} remention 邀请`
+}
+
 function claimBadge(c) {
   const map = { active: 'b-ok', contested: 'b-err', window: 'b-info' }
   const labels = { active: 'active', contested: 'contested', window: 'window' }
@@ -58,20 +152,26 @@ function claimBadge(c) {
 }
 
 function renderClaims(claims) {
+  claimsCache = claims
   const tbody = document.getElementById('claims-tbody')
   tbody.innerHTML = claims.length
     ? claims.map(c => {
         const conv = Math.max(0, Math.min(1, Number(c.conviction ?? 0)))
         const color = conv >= 0.75 ? 'aegean' : 'gold'
+        const act = c.status === 'contested'
+          ? '<span class="mono dim" style="font-size:10px;">已否决</span>'
+          : actionBtn('contest', c.id, '否决')
         return `
           <tr>
             <td>${esc(c.text)}</td>
             <td><div class="conv"><div class="bar"><i class="${color}" style="width:${Math.round(conv * 100)}%"></i></div><span class="v">${conv.toFixed(2)}</span></div></td>
             <td class="mono dim">${esc(text(c.boundary) ?? '—')}</td>
             <td>${claimBadge(c)}</td>
+            <td>${act}</td>
           </tr>`
       }).join('')
-    : '<tr><td colspan="4" class="stat-sub">认识层还空着 —— 反刍后在此结晶。</td></tr>'
+    : '<tr><td colspan="5" class="stat-sub">认识层还空着 —— 反刍后在此结晶。</td></tr>'
+  wireWriteActions(tbody)
 }
 
 function renderThreads(threads) {
@@ -105,9 +205,12 @@ function renderFragments(state) {
         const tags = Array.isArray(f.tags) && f.tags.length ? f.tags.map(esc).join(', ') : '—'
         const source = text(f.source) ?? 'chat'
         const badge = source === 'import' ? '<span class="badge b-warn">import</span>' : `<span class="badge b-info">${esc(source)}</span>`
-        return `<tr><td class="mono">${esc(when)}</td><td>「${esc(excerpt)}${String(f.body ?? '').length > 60 ? '…' : ''}」</td><td class="mono">${tags}</td><td>${badge}</td></tr>`
+        const fid = text(f.id) ?? ''
+        const act = fid ? actionBtn('correct', fid, '修正') : '<span class="mono dim" style="font-size:10px;">—</span>'
+        return `<tr><td class="mono">${esc(when)}</td><td>「${esc(excerpt)}${String(f.body ?? '').length > 60 ? '…' : ''}」</td><td class="mono">${tags}</td><td>${badge}</td><td>${act}</td></tr>`
       }).join('')
-    : '<tr><td colspan="4" class="stat-sub">碎片层暂无内容。</td></tr>'
+    : '<tr><td colspan="5" class="stat-sub">碎片层暂无内容。</td></tr>'
+  wireWriteActions(tbody)
 }
 
 /* ---------- 审计 ---------- */

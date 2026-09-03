@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { hash as argon2Hash } from '@node-rs/argon2'
+import Fastify from 'fastify'
 import { webLogin, AttemptLimiter, IdentityError } from '../src/identity/service.js'
-import { buildFeedEvents, type FeedEvent } from '../src/http/webRoutes.js'
+import { registerWebRoutes, buildFeedEvents, type FeedEvent } from '../src/http/webRoutes.js'
+import { TwigError } from '../src/memory/TwigAdapter.js'
 
 /* ---------- 假 Db：按 queue 出行，记录调用 ---------- */
 class FakeDb {
@@ -124,5 +126,100 @@ describe('buildFeedEvents（铭文流合成）', () => {
     expect(events[0]!.body).toContain('slot 1')
     expect(events[2]!.body).toContain('quiet_hours')
     expect(events[3]!.ok).toBe(false)
+  })
+})
+
+/* ---------- POST /v1/web/memory/* 写操作（BFF：runtime 校验 + 服务端持凭证） ---------- */
+describe('web 写操作路由', () => {
+  const CLIENT = { id: 'cw-1', user_id: 'u-1', client_type: 'web' }
+  const redisOk = { incr: async () => 1, expire: async () => 1, get: async () => null, set: async () => null, del: async () => null, ping: async () => 'PONG' }
+
+  function buildWebApp(twig: Record<string, unknown>) {
+    const app = Fastify({ logger: false })
+    registerWebRoutes(app, {
+      db: { query: async () => ({ rows: [] }) },
+      redis: redisOk,
+      twig,
+      limiter: new AttemptLimiter(),
+      identityAuth: async (k: string) => (k === 'mn_ok' ? CLIENT : null),
+      userOf: async () => USER,
+    } as never)
+    return app
+  }
+
+  it('contest：userId 钉死认证用户 eternal_id，成功 200', async () => {
+    const calls: unknown[][] = []
+    const app = buildWebApp({
+      contest: async (...args: unknown[]) => { calls.push(args); return { ok: true } },
+    })
+    const res = await app.inject({
+      method: 'POST', url: '/v1/web/memory/claims/contest',
+      headers: { 'x-client-key': 'mn_ok', 'content-type': 'application/json' },
+      payload: { claim_id: 'c-9', note: '这不是真的，我否决' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ ok: true })
+    expect(calls[0]?.[0]).toBe(USER.eternal_id) // 不能指定他人
+    expect(calls[0]?.[1]).toBe('c-9')
+    await app.close()
+  })
+
+  it('缺 note → 400；无 key → 401', async () => {
+    const app = buildWebApp({ contest: async () => ({ ok: true }) })
+    const bad = await app.inject({
+      method: 'POST', url: '/v1/web/memory/claims/contest',
+      headers: { 'x-client-key': 'mn_ok', 'content-type': 'application/json' },
+      payload: { claim_id: 'c-1' },
+    })
+    expect(bad.statusCode).toBe(400)
+    const noKey = await app.inject({
+      method: 'POST', url: '/v1/web/memory/claims/contest',
+      headers: { 'content-type': 'application/json' },
+      payload: { claim_id: 'c-1', note: 'x' },
+    })
+    expect(noKey.statusCode).toBe(401)
+    await app.close()
+  })
+
+  it('twig 404 透传 not_found；500 脱敏为 502 twig_error', async () => {
+    const app404 = buildWebApp({
+      correct: async () => { throw new TwigError('POST', '/v1/correct', 404, 'fragment 不存在') },
+    })
+    const r404 = await app404.inject({
+      method: 'POST', url: '/v1/web/memory/correct',
+      headers: { 'x-client-key': 'mn_ok', 'content-type': 'application/json' },
+      payload: { fragment_id: 'f-1', note: '修正' },
+    })
+    expect(r404.statusCode).toBe(404)
+    expect(r404.json().error.type).toBe('not_found')
+    await app404.close()
+
+    const app502 = buildWebApp({
+      correct: async () => { throw new TwigError('POST', '/v1/correct', 500, '内部含记忆内容不下传') },
+    })
+    const r502 = await app502.inject({
+      method: 'POST', url: '/v1/web/memory/correct',
+      headers: { 'x-client-key': 'mn_ok', 'content-type': 'application/json' },
+      payload: { fragment_id: 'f-1', note: '修正' },
+    })
+    expect(r502.statusCode).toBe(502)
+    expect(r502.json().error.message).toBe('twig_error') // 细节不透传
+    await app502.close()
+  })
+
+  it('notes：手写便签创建', async () => {
+    const calls: unknown[][] = []
+    const app = buildWebApp({
+      createNote: async (...args: unknown[]) => { calls.push(args); return { id: 'n-1' } },
+    })
+    const res = await app.inject({
+      method: 'POST', url: '/v1/web/memory/notes',
+      headers: { 'x-client-key': 'mn_ok', 'content-type': 'application/json' },
+      payload: { content: '今天把阳台的薄荷换了个大盆。' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(calls[0]?.[0]).toBe(USER.eternal_id)
+    expect(calls[0]?.[1]).toContain('薄荷')
+    await app.close()
   })
 })
