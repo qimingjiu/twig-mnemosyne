@@ -105,3 +105,35 @@ export function summarizeArgs(args: Record<string, unknown>): string {
   const s = JSON.stringify(args)
   return s.length > 120 ? `${s.slice(0, 117)}...` : s
 }
+
+/* ── 客户端工具透传（origin=client 分流执行）──────────────────────────────
+ * 客户端在请求体用 OpenAI 标准 tools 字段声明自己的工具；网关给它们打 origin=client 标：
+ * 模型调用时 origin=gateway 的服务端执行（确认票照走），origin=client 的网关不执行、
+ * 原样回交客户端由其在自己设备上跑。安全模型不破：服务端永不执行外来代码。 */
+
+/** 请求体 tools 里的 function 型条目（已过 zod 校验的形状）。 */
+export interface ClientToolEntry {
+  type: string
+  function?: { name: string; description?: string; parameters?: unknown }
+  [key: string]: unknown
+}
+
+export interface MergedClientTools {
+  /** 保留的网关工具（与客户端撞名的退场——客户端显式声明压过注册表） */
+  gateway: RuntimeTool[]
+  /** origin=client 的 function 型工具，逐字保留名字（改名客户端就不认识了） */
+  client: ClientToolEntry[]
+  /** 被客户端顶掉的网关 fnName（观测用） */
+  shadowed: string[]
+}
+
+export function mergeClientTools(laneTools: RuntimeTool[], entries: ClientToolEntry[]): MergedClientTools {
+  const client = entries.filter(t => t.type === 'function' && typeof t.function?.name === 'string' && t.function.name.length > 0)
+  const names = new Set(client.map(t => t.function!.name))
+  const shadowed = laneTools.filter(t => names.has(t.fnName)).map(t => t.fnName)
+  return {
+    gateway: laneTools.filter(t => !names.has(t.fnName)),
+    client,
+    shadowed,
+  }
+}

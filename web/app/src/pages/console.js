@@ -5,7 +5,7 @@
  * 经 Caddy 同域反代直连 chat 端点（凭证不出浏览器的设计边界内）。不传 x-eternal-session-id，
  * runtime 按 user+session_type 复用 active personal session——与 Telegram 共享同一段关系上下文。
  */
-import { api, getToken } from '../api.js'
+import { api, getToken, logout } from '../api.js'
 import { esc, fmtTokens } from '../ui.js'
 
 const scroll = document.getElementById('chat-scroll')
@@ -83,7 +83,7 @@ async function send() {
       headers: { 'Content-Type': 'application/json', 'X-Client-Key': getToken() },
       body: JSON.stringify({ messages: history, stream: true, ...(model ? { model } : {}) }),
     })
-    if (res.status === 401) { location.replace('/login.html'); return }
+    if (res.status === 401) { logout(); return } // 清掉失效 key：裸跳转会被 login 的已登录守卫弹回，形成三连跳
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error?.message ?? `HTTP ${res.status}`)

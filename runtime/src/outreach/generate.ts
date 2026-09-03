@@ -5,6 +5,7 @@
  */
 import type { ModelGateway } from '../gateways/litellm.js'
 import { isCrisis } from '../crisis/lexicon.js'
+import { clampTemperature } from '../context/modelRegistry.js'
 import type { HuginnConfig } from './policy.js'
 import type { OutreachCandidate } from './candidates.js'
 
@@ -32,7 +33,9 @@ export async function generateOutreach(
           { role: 'system', content: GENERATION_CONSTRAINTS },
           { role: 'user', content: candidate.hint },
         ],
-        { temperature: cfg.generation.temperature, maxTokens: 160 },
+        { temperature: clampTemperature(cfg.generation.temperature, model), maxTokens: 160 },
+        // clampTemperature：生成链里有 kimi-k2.6 这类 temperatureLock 模型——0.7 直顶上游 400，
+        // 不钳制的话前两棒一抖，第三棒天生是断的
       )
       const content = res.content.trim().slice(0, cfg.generation.max_chars)
       // 输出侧 crisis 词表复扫：踩线 → 换链重试；全链踩线 → 兜底文案

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Pool } from 'pg'
-import { ContextBuilder, type BuildContext } from '../src/context/builder.js'
+import { ContextBuilder, capThreadSection, type BuildContext } from '../src/context/builder.js'
 import type { TwigAdapter } from '../src/memory/TwigAdapter.js'
 import type { TwigContextPacket } from '../src/memory/types.js'
 import { CRISIS_PROMPT } from '../src/crisis/lexicon.js'
@@ -85,5 +85,30 @@ describe('§3.5 装配顺序（R1 stable→volatile + R2 断点）', () => {
     expect(built.narrativeUnavailable).toBe(true)
     expect(built.messages.at(-1)!.role).not.toBe('system')
     expect(built.messages.at(-1)!.content).toBe('历史回复')
+  })
+})
+
+describe('③ 线索剂量：capThreadSection', () => {
+  const prompt = [
+    '【叙事上下文 · 雾尼 Muninn】',
+    '进行中的线索（悬置、等待闭合的问题）：',
+    '- 「线索甲」问题一（已开放 5 天，3）',
+    '- 「线索乙」问题二（已开放 4 天，2）',
+    '- 「线索丙」问题三（已开放 3 天，1）',
+    '对用户的当前理解（随证据修正，括号为置信度）：',
+    '- 认识一（0.90）',
+  ].join('\n')
+
+  it('线索行封顶，其余段落原样保留', () => {
+    const out = capThreadSection(prompt, 2)
+    expect(out).toContain('「线索甲」')
+    expect(out).toContain('「线索乙」')
+    expect(out).not.toContain('「线索丙」')
+    expect(out).toContain('对用户的当前理解')
+    expect(out).toContain('认识一（0.90）')
+  })
+
+  it('无线索段落（上游改格式）优雅降级为原样透传', () => {
+    expect(capThreadSection('没有线索头的自由文本\n- 不是线索行', 2)).toBe('没有线索头的自由文本\n- 不是线索行')
   })
 })

@@ -1,0 +1,12 @@
+# 根上下文构建（mcp-gateway/Dockerfile、deploy/web.Dockerfile）共用的裁剪清单。
+# web.Dockerfile 的 COPY web/app/ ./ 此前会把宿主 node_modules 覆盖进 npm ci 产物，
+# Windows 宿主还可能带入错误的平台二进制（esbuild/rollup）。
+**/node_modules
+**/dist
+.git
+.gitignore
+backups
+docs
+twig-memory
+skills
+web/dist

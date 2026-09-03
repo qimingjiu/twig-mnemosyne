@@ -43,6 +43,13 @@ describe('§21.5 硬截断兜底', () => {
     expect(arabicToChinese('你有 3 条新消息')).toBe('你有 三 条新消息')
   })
 
+  it('TTS 裸数字不被版本号规则糟蹋（v 前缀必填；此前「3 天」读成「三版天」）', () => {
+    expect(normalizeVersionStrings('还有 3 天就周末了')).toBe('还有 3 天就周末了')
+    expect(normalizeVersionStrings('明晚 8 点见')).toBe('明晚 8 点见')
+    // 完整 ttsSanitize 链路：版本口语化 + 剩余数字转汉字
+    expect(ttsSanitize('v2.1 发布了，还有 3 天', { crisis: false })).toBe('二点一版 发布了，还有 三 天')
+  })
+
   it('危机路径 bypass：不截断（以完整陪伴为优先）', () => {
     const long = '我在。' + '陪着你。'.repeat(20)
     expect(ttsSanitize(long, { crisis: true })).toBe(long)

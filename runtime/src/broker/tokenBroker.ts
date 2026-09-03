@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Pool } from 'pg'
 import { env } from '../config.js'
-import { Box } from '../util/crypto.js'
+import { Box, timingSafeEq } from '../util/crypto.js'
 
 const BodySchema = z.object({
   user_id: z.string().uuid(),
@@ -25,7 +25,7 @@ interface TokenRow {
 export function registerBrokerRoute(app: FastifyInstance, deps: { db: Pool; box: Box }): void {
   app.post('/internal/broker/token', async (req, reply) => {
     const headerToken = req.headers['x-broker-token']
-    if (typeof headerToken !== 'string' || headerToken !== env.BROKER_INTERNAL_TOKEN) {
+    if (env.BROKER_INTERNAL_TOKEN.length === 0 || typeof headerToken !== 'string' || !timingSafeEq(headerToken, env.BROKER_INTERNAL_TOKEN)) {
       return reply.code(403).send({ error: 'forbidden' })
     }
     const parsed = BodySchema.safeParse(req.body)

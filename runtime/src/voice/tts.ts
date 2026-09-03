@@ -59,9 +59,10 @@ const DIGITS: Record<string, string> = {
 }
 
 export function normalizeVersionStrings(text: string): string {
-  // "v0.3.0" → "零点三点零版"；其余独立版本号同样口语化
-  return text.replace(/v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/gi, (_m, a: string, b?: string, c?: string) => {
-    const words = [a, b, c].filter(Boolean).map(d => (DIGITS[d ?? ''] ?? d))
+  // 仅「v」前缀的版本号口语化（v0.3.0 → 零点三点零版）；裸数字交给 arabicToChinese——
+  // v 可选的正则会把「还有 3 天」改写成「三版天」，把普通数字全部糟蹋掉。
+  return text.replace(/v(\d+(?:\.\d+){0,2})/gi, (_m, ver: string) => {
+    const words = ver.split('.').map(d => [...d].map(ch => DIGITS[ch] ?? ch).join(''))
     return `${words.join('点')}版`
   })
 }

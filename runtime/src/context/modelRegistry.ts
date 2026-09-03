@@ -17,6 +17,12 @@ export interface ModelSpec {
    * 与 maxTemperature 的「≤1 收敛」区分：lock 时无论请求值一律返回 1。
    */
   temperatureLock?: boolean
+  /**
+   * 模型厂商内建能力（联网搜索等非 function 型 tool 条目）的透传开关。
+   * 默认 false：客户端请求里的非 function 工具条目被丢弃。逐款确认 LiteLLM 对该模型
+   * 的原生工具透传行为后，再在此显式开启——未经确认就放行等于把参数语义押在猜测上。
+   */
+  nativeToolsPassthrough?: boolean
 }
 
 export const MODEL_REGISTRY: Record<string, ModelSpec> = {

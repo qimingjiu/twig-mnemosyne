@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { env } from '../config.js'
+import { env, sha256Short } from '../config.js'
 import { IdentityError, AttemptLimiter, resolveSession, registerClient, rotateClientKey, authClient, getUserById, type ClientRow, type UserRow } from '../identity/service.js'
 import { handleChatCompletion, type ChatDeps, type ChatOutcome } from '../chat/pipeline.js'
 import { renderMetrics } from '../observability/metrics.js'
@@ -13,6 +13,7 @@ import { redactText } from '../observability/redact.js'
 import { loadCapabilities, getForLane } from '../router/capabilities.js'
 import { MODEL_REGISTRY } from '../context/modelRegistry.js'
 import { extractClientKey, rateLimit } from './shared.js'
+import { timingSafeEq } from '../util/crypto.js'
 import { registerWebRoutes } from './webRoutes.js'
 
 export interface RouteDeps extends ChatDeps {
@@ -44,10 +45,21 @@ const RegisterSchema = z.object({
 
 const ChatBodySchema = z.object({
   model: z.string().optional(),
-  messages: z.array(z.object({ role: z.string(), content: z.any() })).min(1),
+  // passthrough：客户端续轮的 assistant.tool_calls / tool.tool_call_id 必须活过校验层
+  messages: z.array(z.object({ role: z.string(), content: z.any() }).passthrough()).min(1),
   temperature: z.number().min(0).max(2).optional(),
   stream: z.boolean().optional(),
   metadata: z.record(z.unknown()).optional(),
+  // origin=client 工具透传：function 型由客户端执行；非 function（厂商原生）按型号开关放行
+  tools: z.array(z.object({
+    type: z.string().min(1).max(64),
+    function: z.object({
+      name: z.string().min(1).max(128),
+      description: z.string().max(2048).optional(),
+      parameters: z.unknown().optional(),
+    }).optional(),
+  }).passthrough()).max(128).optional(),
+  tool_choice: z.unknown().optional(),
 })
 
 async function webhookGuardOptions() {
@@ -64,9 +76,10 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     try {
       await deps.db.query('SELECT 1')
       out.db = 'ok'
-    } catch (e) {
+    } catch {
       out.ok = false
-      out.db = e instanceof Error ? e.message : 'error'
+      // 只报「down」不透传驱动错误串（含内网拓扑，如 connect ECONNREFUSED 10.x.x.x:5432）；细节在日志里
+      out.db = 'error'
     }
     try {
       out.redis = (await deps.redis.ping()) === 'PONG' ? 'ok' : 'error'
@@ -180,7 +193,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   app.post('/v1/chat/completions', async (req, reply) => {
     const clientKey = extractClientKey(req.headers as Record<string, unknown>)
     if (!clientKey) return reply.code(401).send({ error: { message: 'X-Client-Key required', type: 'missing_key' } })
-    if (!(await rateLimit(deps.redis, `key:${clientKey}`, 120, 60)) ||
+    // 键哈希后才进 Redis 键名：限流键常驻内存，不该存可用的明文凭证；顺带钉死键长（header 攻击者可控）
+    if (!(await rateLimit(deps.redis, `key:${sha256Short(clientKey)}`, 120, 60)) ||
         !(await rateLimit(deps.redis, `ip:${req.ip}`, 240, 60))) {
       return reply.code(429).send({ error: { message: 'too many requests', type: 'rate_limited' } })
     }
@@ -202,6 +216,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
         model: parsed.data.model,
         temperature: parsed.data.temperature,
         metadata: parsed.data.metadata,
+        tools: parsed.data.tools,
+        toolChoice: parsed.data.tool_choice,
         eternalSessionId: (req.headers['x-eternal-session-id'] as string | undefined) || undefined,
         sessionType: (req.headers['x-session-type'] as string | undefined) || undefined,
       }, sink?.push)
@@ -227,10 +243,10 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     return reply.code(outcome.status).send(outcome.payload)
   })
 
-  // —— admin（§12.4：独立凭证，与 client_key 体系分离）——
+  // —— admin（§12.4：独立凭证，与 client_key 体系分离；恒时比较，凭据面与 client_signature 同标准）——
   const adminGuard = (req: { headers: Record<string, unknown> }): boolean => {
     const token = req.headers['x-admin-token']
-    return env.ADMIN_TOKEN.length > 0 && typeof token === 'string' && token === env.ADMIN_TOKEN
+    return env.ADMIN_TOKEN.length > 0 && typeof token === 'string' && timingSafeEq(token, env.ADMIN_TOKEN)
   }
 
   app.get('/v1/admin/metrics', async (req, reply) => {
@@ -274,7 +290,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   // —— Huginn → Telegram 出站（OutreachDeliverer 的 webhook 落点；内部共享密钥守卫）——
   app.post('/internal/outbound/telegram', async (req, reply) => {
     const t = req.headers['x-broker-token']
-    if (typeof t !== 'string' || t !== env.BROKER_INTERNAL_TOKEN) {
+    // 空密钥必须显式拒绝（配空串=守卫全开）；比较恒时
+    if (env.BROKER_INTERNAL_TOKEN.length === 0 || typeof t !== 'string' || !timingSafeEq(t, env.BROKER_INTERNAL_TOKEN)) {
       return reply.code(403).send({ error: 'forbidden' })
     }
     const body = (req.body ?? {}) as { content?: string; chat_id?: number }
@@ -346,7 +363,10 @@ export function createStreamSink(reply: FastifyReply): StreamSink {
         renderStreamCompletion(reply, payload) // 缓存命中 / 非流式上游：整段重放
         return
       }
-      send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
+      // 回交轮：tool_calls 以 delta 帧下发、finish_reason: tool_calls（OpenAI 流式协议）
+      const msg = (payload.choices as Array<{ message?: { tool_calls?: unknown } }> | undefined)?.[0]?.message
+      if (msg?.tool_calls) send({ ...base, choices: [{ index: 0, delta: { tool_calls: msg.tool_calls }, finish_reason: null }] })
+      send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: msg?.tool_calls ? 'tool_calls' : 'stop' }] })
       if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
       if (payload.attachments) send({ ...base, choices: [], attachments: payload.attachments })
       if (payload.audio) send({ ...base, choices: [], audio: payload.audio })

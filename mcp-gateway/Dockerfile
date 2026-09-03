@@ -13,6 +13,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV MCP_CONFIG_PATH=/app/config.default.json
 RUN addgroup -S gw && adduser -S gw -G gw
+# 注册表快照落盘点（MCP_STATE_PATH 默认指这里；named volume 首挂继承此目录属主）
+RUN mkdir -p /app/data && chown -R gw:gw /app/data
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY mcp-gateway/config.default.json ./

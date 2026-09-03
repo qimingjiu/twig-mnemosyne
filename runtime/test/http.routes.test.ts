@@ -52,6 +52,35 @@ function buildApp(): ReturnType<typeof Fastify> {
   return app
 }
 
+describe('POST /v1/chat/completions：origin=client 工具透传', () => {
+  it('请求体 tools/tool_choice 原样进管线；消息对象 passthrough 保住 tool_calls 字段', async () => {
+    const app = buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { 'x-client-key': 'mn_ok' },
+      payload: {
+        messages: [
+          { role: 'user', content: '帮我在本机搜一下' },
+          { role: 'assistant', content: '', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'my_local_tool', arguments: '{}' } }] },
+          { role: 'tool', tool_call_id: 'call_1', content: '结果' },
+        ],
+        tools: [{ type: 'function', function: { name: 'my_local_tool', description: '本地工具' } }],
+        tool_choice: 'auto',
+      },
+    })
+    expect(res.statusCode).toBe(200)
+    const calls = vi.mocked(handleChatCompletion).mock.calls
+    const last = calls[calls.length - 1]?.[1]
+    expect(last?.tools).toEqual([{ type: 'function', function: { name: 'my_local_tool', description: '本地工具' } }])
+    expect(last?.toolChoice).toBe('auto')
+    // zod passthrough：tool_calls / tool_call_id 必须活过校验层（续轮重放依赖它们）
+    expect(last?.messages?.[1]?.tool_calls).toBeDefined()
+    expect(last?.messages?.[2]?.tool_call_id).toBe('call_1')
+    await app.close()
+  })
+})
+
 describe('GET /v1/models', () => {
   it('无 key → 401', async () => {
     const app = buildApp()

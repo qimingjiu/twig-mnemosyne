@@ -25,6 +25,8 @@ export interface BuildContext {
   maxMessageTokens: number
   /** 管线已取包时透传（避免 twig 双取）；缺省由 builder 自取 */
   packet?: TwigContextPacket
+  /** 排除当前用户消息行（管线入口已落库；当前消息由调用方追加，不排除会重复进装配） */
+  excludeMessageId?: string
 }
 
 export interface OutgoingMessage {
@@ -51,7 +53,44 @@ export const DEFAULT_PERSONA = `你是 Mnemosyne——用户的个人 AI 伴侣�
 叙事上下文（若有）描述你与用户共同积累的长期认识：
 - 其中的论断是「目前最好的猜测」，不是铁律；带漂移警示的段落请勿当作干预依据；
 - 用户明确否决过（contested）的认识，不要再拿来行动；
+- 叙事包里的开放线索是背景，不是议程：只有当用户当前话题自然靠近某条线索时才顺势提起，
+  一次至多一条；用户没提，就不要主动翻旧账；
 - 与用户当前消息冲突时，以当前消息为准。`
+
+/**
+ * 线索剂量（③ 中间层）：叙事包里「进行中的线索」段落按条数封顶。
+ * 格式与上游 twig-memory renderPromptText 耦合（段落头「进行中的线索」+ `- 「…」` 行）；
+ * 上游改格式时本函数优雅降级为原样透传，不会损坏叙事。数量封顶是记忆女神侧能做的结构层；
+ * 按「最近触碰时间」降权需要上游补证据时间戳字段（见 docs/status.md 的 vein-nudge 注记）。
+ */
+export const THREAD_PROMPT_CAP = 2
+
+export function capThreadSection(promptText: string, max: number = THREAD_PROMPT_CAP): string {
+  const lines = promptText.split('\n')
+  const headerIdx = lines.findIndex(l => l.startsWith('进行中的线索'))
+  if (headerIdx < 0) return promptText
+  let kept = 0
+  let inThreads = false
+  const out: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    if (i === headerIdx) {
+      inThreads = true
+      out.push(line)
+      continue
+    }
+    if (inThreads && line.startsWith('- ')) {
+      if (kept < max) {
+        out.push(line)
+        kept++
+      }
+      continue // 超封顶的线索行丢弃
+    }
+    inThreads = false // 首个非「- 」行 = 线索段落结束，后续段落不受影响
+    out.push(line)
+  }
+  return out.join('\n')
+}
 
 export class ContextBuilder {
   constructor(
@@ -86,7 +125,7 @@ export class ContextBuilder {
         }
       }
       if (packet) {
-        tail = packet.promptText
+        tail = capThreadSection(packet.promptText)
       } else {
         // fail-open 决策（记录在案）：twig 短暂不可用时保持对话可用，但丢失漂移警示等安全语义，
         // 因此必须打点告警；连续失败应触发 Dashboard 告警而非静默。
@@ -118,7 +157,7 @@ export class ContextBuilder {
       0,
       window - systemTokens - budget.currentMessage - budget.outputReserve - budget.safetyBuffer,
     )
-    const recent: RecentMessage[] = await getRecentMessages(this.db, ctx.session.id, conversationBudget)
+    const recent: RecentMessage[] = await getRecentMessages(this.db, ctx.session.id, conversationBudget, ctx.excludeMessageId)
 
     // R2：cache_control 断点只标稳定段末——叙事漂移不再作废整段 Anthropic 前缀缓存。
     // 仅 Anthropic 系支持消息级 cache_control；LiteLLM 对其他 provider 会丢弃该字段。
@@ -144,7 +183,9 @@ export class ContextBuilder {
 
     return {
       messages,
-      narrativeVersion: packet ? narrativeVersionOf(packet.promptText) : 'crisis',
+      // nv 必须基于裁剪后的文本：装配进 prompt 的是 capThreadSection 的产物，
+      // 缓存键若用原始 promptText 的哈希，键与内容就错位了
+      narrativeVersion: packet ? narrativeVersionOf(capThreadSection(packet.promptText)) : 'crisis',
       budget,
       packet,
       narrativeUnavailable,

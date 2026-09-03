@@ -31,14 +31,15 @@ export interface OutreachCandidate {
   hint: string
 }
 
-export function matchesCron(expr: string, now: Date = new Date()): boolean {
+export function matchesCron(expr: string, now: Date = new Date(), tz?: string): boolean {
   try {
     // currentDate 取 now+1ms：cron 语义为「上一触发点落在当前分钟内」（prev 不含等于时刻）
-    const interval = cronParser.parseExpression(expr, { currentDate: new Date(now.getTime() + 1) })
+    // tz 与 quiet_hours 同源（preferences.tz）：不传会按服务器时区匹配，与用户本地时刻错位
+    const interval = cronParser.parseExpression(expr, { currentDate: new Date(now.getTime() + 1), tz: tz || undefined })
     const prev = interval.prev().toDate()
     return now.getTime() - prev.getTime() < 60_000 && prev <= now
   } catch {
-    return false // 非法 cron 永不触发，配置校验在写入侧负责
+    return false // 非法 cron/时区永不触发，配置校验在写入侧负责
   }
 }
 
@@ -112,9 +113,10 @@ export async function scanCandidate(
   // 3. ritual：用户显式配置授权，不需要 Narrative Engine 认可
   const rituals = user.preferences['rituals']
   if (Array.isArray(rituals)) {
+    const tz = typeof user.preferences['tz'] === 'string' ? (user.preferences['tz'] as string) : undefined
     for (const r of rituals) {
       const ritual = r as Partial<RitualConfig>
-      if (typeof ritual?.cron === 'string' && matchesCron(ritual.cron, now)) {
+      if (typeof ritual?.cron === 'string' && matchesCron(ritual.cron, now, tz)) {
         const name = typeof ritual.name === 'string' ? ritual.name : 'ritual'
         const message = typeof ritual.message === 'string' ? ritual.message : ''
         return {

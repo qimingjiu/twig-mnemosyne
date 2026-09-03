@@ -7,14 +7,17 @@
  *   POST /v1/web/login                     master_key 换 web client_key（可重复，旧会话失效）
  *   GET  /v1/web/me                        当前用户信息（rail 用户牌）
  *   GET  /v1/web/memory/*                  twig-memory 只读代理（凭证在服务端）
+ *   POST /v1/web/memory/claims/contest     否决论断（写，userId 钉死认证用户）
+ *   POST /v1/web/memory/correct            追加修正标注（写）
+ *   POST /v1/web/memory/notes              便签写作（写）
  *   GET  /v1/web/metrics/summary           24h 用量聚合（§9 usage_logs，user 侧视图）
  *   GET  /v1/web/feed                      铭文流：usage + outreach 最近事件合并
- * 只读 + 一个登录 POST：Dashboard 的写操作（contest/correct/relocate）留待后续阶段，
- * 届时应沿用「runtime 校验 + 服务端持 twig 凭证」的同一模式。
+ * 写操作（2026-09-03 上线）沿用同一模式：runtime 校验 + 服务端持 twig 凭证；
+ * relocate（§23）仍走 CLI。
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { DEFAULT_CHAIN } from '../config.js'
+import { DEFAULT_CHAIN, sha256Short } from '../config.js'
 import type { Db } from '../db.js'
 import type { Redis } from 'ioredis'
 import { TwigError } from '../memory/TwigAdapter.js'
@@ -50,7 +53,7 @@ async function requireUser(
     void reply.code(401).send({ error: { message: 'X-Client-Key required', type: 'missing_key' } })
     return null
   }
-  if (!(await rateLimit(deps.redis, `web:${clientKey}`, WEB_RATE_PER_MIN, 60))) {
+  if (!(await rateLimit(deps.redis, `web:${sha256Short(clientKey)}`, WEB_RATE_PER_MIN, 60))) {
     void reply.code(429).send({ error: { message: 'too many requests', type: 'rate_limited' } })
     return null
   }
@@ -347,7 +350,8 @@ export function registerWebRoutes(app: FastifyInstance, deps: WebDeps): void {
     const ctx = await requireUser(deps, req, reply)
     if (!ctx) return
     const q = req.query as Record<string, string | undefined>
-    const limit = Math.min(num(q.limit ?? null) ?? 40, 100)
+    // 收敛为正整数：负数/小数直通 LIMIT $2 会被 PG 拒掉（raw 23514 类错误 → 500）
+    const limit = Math.max(1, Math.min(Math.floor(num(q.limit ?? null) ?? 40), 100))
     const [usage, outreach] = await Promise.all([
       deps.db.query<UsageRow>(
         `SELECT timestamp, provider, model, latency_ms, output_tokens, cache_hit_type,

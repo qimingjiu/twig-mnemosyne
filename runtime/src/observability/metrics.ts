@@ -38,9 +38,9 @@ export const tokensTotal = new client.Counter({
 
 export const latencySeconds = new client.Histogram({
   name: 'mnemosyne_latency_seconds',
-  help: 'Latency by stage',
+  help: 'Latency by stage (model.call / crisis_prescan / twig_packet / assemble / gateway_first_byte / request_total)',
   labelNames: ['stage', 'provider'] as const,
-  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
+  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 180],
   registers: [registry],
 })
 

@@ -35,10 +35,26 @@ const BATCH = 50
 
 /** 行 → 合法 OpenAI 消息序列（纯函数，单测锚点）。 */
 export function rebuildRecentMessages(rows: MessageRow[]): RecentMessage[] {
+  // 窗口内实际有 tool 结果行的 tool_call_id 集合：assistant 声明过的 tool_calls 若缺配对结果
+  // （客户端弃坑 / 服务端回路中途崩溃），裸悬空会被严格 provider 400——按 id 清洗
+  const answered = new Set<string>()
+  for (const row of rows) {
+    if (row.role === 'tool') {
+      const tcid = row.tool_results?.tool_call_id
+      if (tcid) answered.add(tcid)
+    }
+  }
   const out: RecentMessage[] = []
   for (const row of rows) {
     if (row.role === 'assistant' && Array.isArray(row.tool_calls) && row.tool_calls.length > 0) {
-      out.push({ role: 'assistant', content: row.content, tool_calls: row.tool_calls })
+      const paired = row.tool_calls.filter(c => answered.has(c.id))
+      if (paired.length === row.tool_calls.length) {
+        out.push({ role: 'assistant', content: row.content, tool_calls: row.tool_calls })
+      } else if (paired.length > 0) {
+        out.push({ role: 'assistant', content: row.content, tool_calls: paired })
+      } else {
+        out.push({ role: 'assistant', content: row.content }) // 全部悬空 → 退化为纯文本助手行
+      }
       continue
     }
     if (row.role === 'tool') {
@@ -49,24 +65,37 @@ export function rebuildRecentMessages(rows: MessageRow[]): RecentMessage[] {
     }
     out.push({ role: row.role, content: row.content })
   }
-  // 末尾悬空的 assistant-tool_calls 组（工具回路中途崩溃的残迹）会破坏序列，裁掉
-  while (out.length > 0 && out[out.length - 1]?.role === 'assistant' && out[out.length - 1]?.tool_calls) {
-    out.pop()
+  // 预算切进工具组中间时，窗口头部可能出现孤儿 tool 行（其配对的 assistant-with-tool_calls
+  // 在窗口外被裁掉）——回放序列以裸 tool 开头会被 provider 400，同样裁掉
+  while (out.length > 0 && out[0]?.role === 'tool') {
+    out.shift()
+  }
+  // 末尾的空残迹裁掉：悬空 assistant-tool_calls 组（经上面的清洗已退化为空文本行）或
+  // 空文本助手行——留在序列末尾只会污染下一轮生成
+  while (out.length > 0 && out[out.length - 1]?.role === 'assistant') {
+    const last = out[out.length - 1]
+    if (last?.tool_calls || last?.content === '') out.pop()
+    else break
   }
   return out
 }
 
-export async function getRecentMessages(db: Db, sessionId: string, tokenBudget: number): Promise<RecentMessage[]> {
+export async function getRecentMessages(
+  db: Db,
+  sessionId: string,
+  tokenBudget: number,
+  excludeId?: string,
+): Promise<RecentMessage[]> {
   const picked: MessageRow[] = []
   let used = 0
   for (let offset = 0; ; offset += BATCH) {
     const { rows } = await db.query<MessageRow>(
       `SELECT role, content, token_count, tool_calls, tool_results
          FROM conversation_messages
-        WHERE session_id = $1 AND role IN ('user','assistant','tool')
+        WHERE session_id = $1 AND role IN ('user','assistant','tool') AND ($2::uuid IS NULL OR id <> $2)
         ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3`,
-      [sessionId, BATCH, offset],
+        LIMIT $3 OFFSET $4`,
+      [sessionId, excludeId ?? null, BATCH, offset],
     )
     if (rows.length === 0) break
     for (const msg of rows) {

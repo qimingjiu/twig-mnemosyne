@@ -78,14 +78,18 @@ async function backupPostgres() {
 /* ---------- 2. twig 叙事数据（经 BFF，凭证不出本机之外）---------- */
 let clientKey = WEB_KEY ?? null
 
-async function api(path, init = {}) {
+async function api(path, init = {}, retried = false) {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: { 'X-Client-Key': clientKey, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
   })
-  if (res.status === 401 && !WEB_KEY) { // key 失效 → 重登一次
+  if (res.status === 401 && !WEB_KEY) {
+    // key 失效（如 web 端重新登录轮换了 client_key）→ 重登一次再重试；
+    // 此前只把 clientKey 置空返回 null，调用方把字面 null 写进文件还打 ✓，备份静默变空
+    if (retried) throw new Error(`${path} → 401（重登后仍被拒；master_key 可能已变更）`)
     clientKey = null
-    return null
+    await ensureKey()
+    return api(path, init, true)
   }
   if (!res.ok) throw new Error(`${path} → ${res.status}: ${(await res.text()).slice(0, 200)}`)
   return res.json()
@@ -99,7 +103,8 @@ async function ensureKey() {
   const res = await fetch(`${BASE}/v1/web/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_eternal_id: ETERNAL_ID, master_key: MASTER_KEY }),
+    // BFF schema 只收小写 64-hex；env 里手抄的大写会 400 掉整个 twig 备份
+    body: JSON.stringify({ user_eternal_id: String(ETERNAL_ID).trim().toLowerCase(), master_key: MASTER_KEY }),
   })
   if (!res.ok) fail(`web/login ${res.status}: ${(await res.text()).slice(0, 200)}`)
   clientKey = (await res.json()).client_key
@@ -110,14 +115,18 @@ async function pullAll(pathBase, pageParam) {
   // 分页拉尽（state/notes 为 page/limit 语义）；非分页端点一次返回
   if (!pageParam) return api(pathBase)
   const out = []
+  let first = null
   for (let page = 1; page <= 500; page++) {
     const sep = pathBase.includes('?') ? '&' : '?'
     const data = await api(`${pathBase}${sep}${pageParam}=${page}&limit=500`)
-    const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.states) ? data.states : Array.isArray(data?.notes) ? data.notes : null
+    if (first === null) first = data
+    const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.notes) ? data.notes : Array.isArray(data?.fragments) ? data.fragments : null
     if (items == null) return data // 形状不带分页，直接返回
     out.push(...items)
     if (items.length < 500) break
   }
+  // state 端点顶层是 state 对象 + fragments 分页（此前不认识该形状，只备份到第 1 页 500 条）
+  if (first && Array.isArray(first.fragments)) return { ...first, fragments: out, totalFragments: out.length }
   return out
 }
 

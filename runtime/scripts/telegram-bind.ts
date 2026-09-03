@@ -14,7 +14,7 @@
 import { parseArgs } from 'node:util'
 import { pool, migrate } from '../src/db.js'
 import { env } from '../src/config.js'
-import { getUserByEternalId, userCount } from '../src/identity/service.js'
+import { generateClientKey, getUserByEternalId, userCount } from '../src/identity/service.js'
 import { sha256Hex } from '../src/util/crypto.js'
 
 const INTERNAL_WEBHOOK = 'http://mnemosyne.zeabur.internal:8000/internal/outbound/telegram'
@@ -57,7 +57,8 @@ async function main(): Promise<void> {
       [existing[0].id, JSON.stringify(ids), INTERNAL_WEBHOOK],
     )
   } else {
-    const key = `mn_${Buffer.from(`${Date.now()}`).toString('base64url')}${Math.random().toString(36).slice(2, 14)}`
+    // 与 identity 层同源的 CSPRNG：此前 Date.now()+Math.random 的可预测材料低于凭证标准
+    const key = generateClientKey()
     await pool.query(
       `INSERT INTO clients (user_id, client_type, key_hash, display_name, webhook_url, scopes, metadata)
        VALUES ($1, 'telegram', $2, 'Telegram bot', $3, '{chat}', $4::jsonb)`,

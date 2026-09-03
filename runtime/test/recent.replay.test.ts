@@ -44,6 +44,43 @@ describe('§3.4 历史回放：工具消息必须重建合法 OpenAI 序列', ()
     expect(out.map(m => m.role)).toEqual(['user'])
   })
 
+  it('预算切进工具组：头部孤儿 tool 行裁掉（配对的 assistant 在窗口外）', () => {
+    const out = rebuildRecentMessages([
+      row({ role: 'tool', content: '工具结果', tool_results: { tool_call_id: 'call_1' } }),
+      row({ role: 'user', content: '下一轮消息' }),
+    ])
+    expect(out.map(m => m.role)).toEqual(['user'])
+  })
+
+  it('历史中段悬空的 tool_calls 按 id 清洗（客户端弃坑/回路崩溃残迹），有结果的保留', () => {
+    const calls = [
+      { id: 'call_ok', type: 'function' as const, function: { name: 'web_search', arguments: '{}' } },
+      { id: 'call_lost', type: 'function' as const, function: { name: 'music_play', arguments: '{}' } },
+    ]
+    const out = rebuildRecentMessages([
+      row({ role: 'user', content: '问题' }),
+      row({ role: 'assistant', content: '', tool_calls: calls }),
+      row({ role: 'tool', content: '结果', tool_results: { tool_call_id: 'call_ok' } }),
+      row({ role: 'user', content: '继续' }),
+    ])
+    expect(out).toHaveLength(4)
+    expect(out[1]?.tool_calls?.map(c => c.id)).toEqual(['call_ok']) // call_lost 无结果，剥除
+    expect(out[2]?.tool_call_id).toBe('call_ok')
+    expect(out[3]?.content).toBe('继续')
+  })
+
+  it('assistant 的 tool_calls 全部悬空 → 退化为纯文本助手行（不携带 tool_calls）', () => {
+    const out = rebuildRecentMessages([
+      row({ role: 'user', content: '问题' }),
+      row({ role: 'assistant', content: '我先想想', tool_calls: [
+        { id: 'call_x', type: 'function' as const, function: { name: 't', arguments: '{}' } },
+      ] }),
+      row({ role: 'user', content: '算了' }),
+    ])
+    expect(out).toHaveLength(3)
+    expect(out[1]).toEqual({ role: 'assistant', content: '我先想想' })
+  })
+
   it('普通对话原样保留', () => {
     const out: RecentMessage[] = rebuildRecentMessages([
       row({ role: 'user', content: 'a' }),

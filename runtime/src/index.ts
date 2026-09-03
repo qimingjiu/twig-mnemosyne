@@ -124,13 +124,19 @@ async function main(): Promise<void> {
   const timers: ReturnType<typeof setInterval>[] = []
   const huginn = loadHuginnConfig()
   if (huginn.enabled) {
-    const deps = { db: pool, twig, gateway, guard: defaultGuard(), cfg: huginn, log: (m: string) => app.log.info(m) }
+    const guard = defaultGuard()
+    const deps = { db: pool, twig, gateway, guard, cfg: huginn, log: (m: string) => app.log.info(m) }
     timers.push(scheduleCron(huginn.scan_interval, () => runScan(deps), m => app.log.error(m)))
+    // 防重叠：twig 故障时单轮可拖 ~100s（10 行 × 10s 超时），裸 setInterval 会叠出并发轮——
+    // 同一批 pending 行被重复 intervene、attempts 基于过期快照回写
+    let outboxRunning = false
     timers.push(
       setInterval(() => {
-        runOutboxWorker({ db: pool, twig, cfg: huginn, log: m => app.log.info(m) }).catch(e =>
-          app.log.error(`[outbox] worker failed: ${e instanceof Error ? e.message : String(e)}`),
-        )
+        if (outboxRunning) return
+        outboxRunning = true
+        runOutboxWorker({ db: pool, twig, guard, cfg: huginn, log: m => app.log.info(m) })
+          .catch(e => app.log.error(`[outbox] worker failed: ${e instanceof Error ? e.message : String(e)}`))
+          .finally(() => { outboxRunning = false })
       }, huginn.outbox_worker_interval * 1000),
     )
     app.log.info(`[huginn] enabled: scan="${huginn.scan_interval}" cap=${huginn.daily_cap}`)

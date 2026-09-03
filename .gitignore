@@ -19,3 +19,6 @@ deploy/secrets.*.env
 # 本地备份（backup-local.mjs）：备份产物与连接凭证不入库
 backups/
 scripts/backup.local.env
+
+# mcp-gateway 注册表快照（dev 默认落在 mcp-gateway/ 下）
+dynamic-servers.json

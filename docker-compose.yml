@@ -6,8 +6,10 @@ services:
   # ─── Runtime Core ───
   mnemosyne:
     build: ./runtime
+    # 只绑回环：runtime 端口上有 /internal/broker/token、/v1/admin/*（仅静态 token 一道门），
+    # 公网入口一律走 caddy 反代；上 Vultr 等裸 compose 部署时全接口发布会是公网洞
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - NODE_ENV=production
       - PORT=8000
@@ -21,13 +23,12 @@ services:
       - MCP_GATEWAY_URL=http://mcp-gateway:3000
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - WEBHOOK_HOST_ALLOWLIST=${WEBHOOK_HOST_ALLOWLIST:-mnemosyne.zeabur.internal}
-      - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - BROKER_INTERNAL_TOKEN=${BROKER_INTERNAL_TOKEN}
       - CONFIRM_SECRET=${CONFIRM_SECRET}
       - BOOTSTRAP_TOKEN=${BOOTSTRAP_TOKEN:-}
       - ALLOW_INSECURE_WEBHOOK=${ALLOW_INSECURE_WEBHOOK:-0}
-      - WEBHOOK_HOST_ALLOWLIST=${WEBHOOK_HOST_ALLOWLIST:-}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
       - PRIVACY_LOCAL_THRESHOLD=${PRIVACY_LOCAL_THRESHOLD:-70}
       - CRISIS_SILENCE_HOURS=${CRISIS_SILENCE_HOURS:-24}
       - MAX_MESSAGE_TOKENS=${MAX_MESSAGE_TOKENS:-4096}
@@ -62,6 +63,10 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+      # 中转/聚合渠道（litellm.yaml 里 os.environ 解析；漏传则对应模型全线 401）
+      - COMMANDCODE_API_KEY=${COMMANDCODE_API_KEY:-}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-}
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
       # 形态 A 指向 tailnet IP；形态 B 指向 ollama 服务名
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://ollama:11434}
@@ -81,9 +86,11 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - ./skills:/app/skills:ro
+      - gateway_data:/app/data
     environment:
       - BROKER_URL=http://mnemosyne:8000
       - BROKER_INTERNAL_TOKEN=${BROKER_INTERNAL_TOKEN}
+      - MCP_STATE_PATH=/app/data/dynamic-servers.json
     restart: unless-stopped
     networks:
       - mnemosyne
@@ -113,7 +120,8 @@ services:
       POSTGRES_DB: mnemosyne
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deploy/compose/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./deploy/compose/init.sql:/docker-entrypoint-initdb.d/10-extensions.sql:ro
+      - ./deploy/compose/init-litellm.sh:/docker-entrypoint-initdb.d/20-litellm.sh:ro
     ports:
       - "127.0.0.1:5432:5432"
     restart: unless-stopped
@@ -162,7 +170,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     restart: unless-stopped
@@ -202,6 +210,7 @@ volumes:
   redis_data:
   qdrant_data:
   twig_data:
+  gateway_data:
   prometheus_data:
   grafana_data:
   caddy_data:

@@ -4,7 +4,7 @@
  * fetch 全局 mock 为内存 ReadableStream，不连真实网关。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { ModelGateway, LiteLlmError } from '../src/gateways/litellm.js'
+import { ModelGateway, LiteLlmError, isRetryableError } from '../src/gateways/litellm.js'
 
 const gw = new ModelGateway('http://gw.test', 'sk-test')
 
@@ -79,5 +79,27 @@ describe('ModelGateway.chatStream', () => {
     const seen: string[] = []
     await expect(gw.chatStream('m', [], {}, t => seen.push(t))).rejects.toBeInstanceOf(LiteLlmError)
     expect(seen).toEqual([])
+  })
+
+  it('中途超时（AbortError）映射 LiteLlmError 504——可重试，fallback 与否由调用方 streamedAny 把门', async () => {
+    // 设计纪律（验收过的）：「开始吐 delta 就不准换腿」的闸门在 runModelLoop 的
+    // streamedAny 检查（catch 首行），不在网关层。网关只负责把裸 AbortError 重分类为
+    // 504：零 delta 场景（推理模型首 token 前思考超时、纯工具轮）由此获得与 chat()
+    // 首包超时一致的链内 fallback；已发 delta 的场景调用方仍按「已提交」抛出。
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      const encoder = new TextEncoder()
+      return new Response(new ReadableStream({
+        start(c) {
+          c.enqueue(encoder.encode(frame({ choices: [{ delta: { content: '半句' } }] })))
+          c.error(new DOMException('The operation was aborted.', 'AbortError'))
+        },
+      }), { status: 200 })
+    }))
+    await expect(gw.chatStream('m', [], {}, () => undefined)).rejects.toMatchObject({
+      name: 'LiteLlmError',
+      status: 504,
+    })
+    // 504 在 isRetryableError 的可重试集合内（链内 fallback 的通行证）
+    expect(isRetryableError(new LiteLlmError(504, 'timeout'))).toBe(true)
   })
 })

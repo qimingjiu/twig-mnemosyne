@@ -32,11 +32,37 @@ describe('§2.5.1 Webhook 校验链（VULN-13 / T8.5 SSRF）', () => {
     expect(isBlockedIp('2001:db8::1')).toBe(false)
   })
 
-  it('scheme 白名单：仅 https（http 需显式 ALLOW_INSECURE_WEBHOOK）', async () => {
+  it('IPv6 hex 变体：映射/NAT64 的非点分写法同样拦截（expandV6 解析加固）', () => {
+    // ::ffff:10.0.0.1 的 hex 形式——getaddrinfo 在部分平台输出这种形态
+    expect(isBlockedIp('::ffff:a00:1')).toBe(true)
+    expect(isBlockedIp('0:0:0:0:0:ffff:10.0.0.1')).toBe(true)
+    expect(isBlockedIp('::ffff:0a00:0001')).toBe(true)
+    // hex 映射的公网地址照常放行
+    expect(isBlockedIp('::ffff:808:808')).toBe(false) // 8.8.8.8
+    // NAT64/DNS64 合成地址（64:ff9b::/96）内嵌 IPv4 也要过封锁清单
+    expect(isBlockedIp('64:ff9b::a00:1')).toBe(true)
+    expect(isBlockedIp('64:ff9b::8.8.8.8')).toBe(false)
+    // 解析不了的输入维持不拦（不因加固把合法端点全拒了）
+    expect(isBlockedIp('not-an-ip')).toBe(false)
+  })
+
+  it('scheme 白名单：仅 https（http 需显式 ALLOW_INSECURE_WEBHOOK 或白名单信任）', async () => {
     const opts = { allowInsecure: false, allowlist: [] }
     expect((await validateWebhookUrl('ftp://example.com/x', opts)).ok).toBe(false)
     const httpVerdict = await validateWebhookUrl('http://example.com/x', opts)
     expect(httpVerdict).toMatchObject({ ok: false, reason: 'scheme_not_allowed' })
+  })
+
+  it('白名单豁免 scheme：内部 http 端点（mnemosyne.zeabur.internal 出站）可不带 ALLOW_INSECURE', async () => {
+    // localhost 本机可解析（内部域名在 CI 上解析不了）；allowlist 同时豁免 scheme 与内网段检查
+    const opts = { allowInsecure: false, allowlist: ['localhost'] }
+    expect(await validateWebhookUrl('http://localhost:8000/internal/outbound/telegram', opts))
+      .toMatchObject({ ok: true, host: 'localhost' })
+    // 白名单外的 http 仍拒绝（scheme 先拦；放开 insecure 后也过不了 allowlist 这关）
+    const outside = { allowInsecure: false, allowlist: ['localhost'] }
+    expect(await validateWebhookUrl('http://evil.example.com/x', outside)).toMatchObject({ ok: false, reason: 'scheme_not_allowed' })
+    expect(await validateWebhookUrl('http://evil.example.com/x', { allowInsecure: true, allowlist: ['localhost'] }))
+      .toMatchObject({ ok: false, reason: 'host_not_in_allowlist' })
   })
 
   it('T8.5：http 内网探测被拒绝（scheme 或私网解析，双层防御）', async () => {
@@ -108,9 +134,49 @@ describe('§2.5.1 R6 钉扎：pinnedLookup + 钉扎 dispatcher 投递', () => {
       // localhost 解析 127.0.0.1/::1，均落内网段且不在 allowlist
       const db = { query: async () => ({ rows: [{ webhook_url: `http://localhost:${(server.address() as { port: number }).port}/hook` }] }) } as unknown as Db
       const result = await deliverOutreach(db, { allowInsecure: true, allowlist: [] }, 'u1', 'hi', 'k2')
-      expect(result).toMatchObject({ ok: false, error: 'host_resolves_to_private_range' })
+      // error 文案带主机前缀（多 client 投递时区分是谁败的）
+      expect(result.ok).toBe(false)
+      expect(result.error).toContain('host_resolves_to_private_range')
     } finally {
       server.close()
+    }
+  })
+
+  it('E2E：webhook 返回 5xx → 不得静默当成功（投递状态必须如实）', async () => {
+    const server: Server = createServer((req, res) => { res.statusCode = 500; res.end('boom') })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const port = (server.address() as { port: number }).port
+    try {
+      const db = { query: async () => ({ rows: [{ webhook_url: `http://127.0.0.1:${port}/hook` }] }) } as unknown as Db
+      const result = await deliverOutreach(db, { allowInsecure: true, allowlist: ['127.0.0.1'] }, 'u1', 'hi', 'k3')
+      expect(result.ok).toBe(false)
+      expect(result.error).toContain('delivery_http_500')
+    } finally {
+      server.close()
+    }
+  })
+
+  it('多 client 投递：首个失败不阻断后续 client', async () => {
+    const bad: Server = createServer((req, res) => { res.destroy() })
+    const flaky: Server = createServer((req, res) => { res.statusCode = 503; res.end('no') })
+    await new Promise<void>(resolve => bad.listen(0, '127.0.0.1', resolve))
+    await new Promise<void>(resolve => flaky.listen(0, '127.0.0.1', resolve))
+    const badPort = (bad.address() as { port: number }).port
+    const flakyPort = (flaky.address() as { port: number }).port
+    try {
+      const db = {
+        query: async () => ({ rows: [
+          { webhook_url: `http://127.0.0.1:${badPort}/hook` },     // 连接被掐断
+          { webhook_url: `http://127.0.0.1:${flakyPort}/hook` },  // HTTP 503（也要如实计失败）
+        ] }),
+      } as unknown as Db
+      const result = await deliverOutreach(db, { allowInsecure: true, allowlist: ['127.0.0.1'] }, 'u1', 'hi', 'k4')
+      expect(result.ok).toBe(false) // 有失败 → 整体不算送达（留待重试）
+      expect(result.error).toContain(`http://127.0.0.1:${badPort}/hook`)
+      expect(result.error).toContain(`http://127.0.0.1:${flakyPort}/hook`) // 首个失败后第二个仍被尝试
+      expect(result.error).toContain('delivery_http_503')
+    } finally {
+      bad.close(); flaky.close()
     }
   })
 })

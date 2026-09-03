@@ -134,3 +134,7 @@ capabilities:
         confirmation_required: true
       - name: invoke
         description: "Escape hatch: call any registered server's tool directly through the registry"
+        # §5.4 注记承诺「每次调用带确认票」——capability 级是 false，invoke 不 override 的话
+        # needConfirm=false 直接执行：一条网页注入就能 registry_invoke(server=gmail, tool=send_mail)，
+        # 把 mail 域的确认纪律整个旁路
+        confirmation_required: true

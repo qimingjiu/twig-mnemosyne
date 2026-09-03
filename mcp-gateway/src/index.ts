@@ -15,7 +15,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { BUILTIN_SERVERS, installBuiltin, type ToolInfo } from './builtin.js'
 
 const PORT = Number(process.env.PORT || 3000)
@@ -36,8 +36,44 @@ interface GatewayConfig {
   mcpServers: Record<string, ServerConfig>
 }
 
-/** 运行时动态注册的 remote server（register/unregister 端点维护；重启即清空） */
+/** 运行时动态注册的 remote server（register/unregister 端点维护；快照持久化，重启读回） */
 const dynamicServers = new Map<string, ServerConfig & { name: string }>()
+
+// ── 注册表快照（write-through）────────────────────────────────────────────
+// 此前动态注册只活在内存，重启即蒸发（121 个 Smithery 工具随滚动部署蒸发过）。
+// MCP_BOOT_REGISTRATIONS 是第一条路（env 清单）；快照是第二条路：注册/注销即写盘，
+// 启动读回并标记「已知未验证」——连接仍是懒的，首次调用时重握手，握不上的进
+// lastError 尸检名单（/health 可见），绝不静默丢。文件含 headers（Bearer token），
+// 只落容器卷，不入 git；写失败降级为纯内存（只读 fs 的部署形态照常工作）。
+const STATE_PATH = process.env.MCP_STATE_PATH || 'dynamic-servers.json'
+
+function saveSnapshot(): void {
+  const list = [...dynamicServers.values()].map(({ name, url, headers, skill_document, transport }) =>
+    ({ name, url, headers, skill_document, transport }))
+  try {
+    writeFileSync(STATE_PATH, JSON.stringify(list, null, 1))
+  } catch (e) {
+    console.error('[gateway] snapshot write failed (continuing in-memory):', e instanceof Error ? e.message : e)
+  }
+}
+
+function loadSnapshot(): void {
+  let list: (ServerConfig & { name: string })[]
+  try {
+    list = JSON.parse(readFileSync(STATE_PATH, 'utf8')) as typeof list
+  } catch {
+    return // 无快照/损坏 → 空启动
+  }
+  for (const item of Array.isArray(list) ? list : []) {
+    if (typeof item?.name !== 'string' || typeof item?.url !== 'string') continue
+    if (dynamicServers.has(item.name)) continue // BOOT_REGISTRATIONS / 本次会话已注册者优先
+    dynamicServers.set(item.name, {
+      name: item.name, type: 'remote', url: item.url, enabled: true,
+      transport: item.transport, skill_document: item.skill_document, headers: item.headers,
+    })
+    console.log(`[gateway] restored ${item.name} from snapshot (known-unverified, lazy re-handshake)`)
+  }
+}
 
 function loadConfig(): GatewayConfig {
   try {
@@ -56,6 +92,8 @@ interface Conn {
 }
 
 const conns = new Map<string, Conn>()
+/** 单飞守卫：冷启动并发调用若各自建连，输家的子进程/连接没人回收（泄漏） */
+const connecting = new Map<string, Promise<Conn>>()
 const toolsCache = new Map<string, { tools: ToolInfo[]; at: number }>()
 // 每 server 最近一次故障，/health 透出（listTools 失败不再只沉在日志里）
 const lastError = new Map<string, string>()
@@ -94,6 +132,14 @@ async function probeRemote(url: string, headers?: Record<string, string>): Promi
 async function getConnection(server: string): Promise<Conn> {
   const existing = conns.get(server)
   if (existing) return existing
+  const inFlight = connecting.get(server)
+  if (inFlight) return inFlight
+  const p = connect(server).finally(() => connecting.delete(server))
+  connecting.set(server, p)
+  return p
+}
+
+async function connect(server: string): Promise<Conn> {
   const cfg = serverConfig(server)
   if (!cfg || cfg.enabled === false) throw new Error(`server disabled or unknown: ${server}`)
   if (isBuiltin(server)) throw new Error('builtin handled directly, never via getConnection')
@@ -149,7 +195,9 @@ async function registerServer(
   url: string,
   opts: { oauth?: boolean; skill_document?: string; headers?: Record<string, string> } = {},
 ): Promise<{ name: string; transport: 'streamable-http' | 'sse'; tools: ToolInfo[] }> {
-  // builtin override：同名 builtin 会永久遮蔽 dynamic 定义，注册前就拒掉
+  // builtin override：同名 builtin 会永久遮蔽 dynamic 定义，注册前就拒掉。
+  // 名称格式与 /register 端点同一把尺（register_server 工具与 BOOT_REGISTRATIONS 也走这里）
+  if (!/^[a-zA-Z0-9_-]{1,32}$/.test(name)) throw new Error('name must be alphanumeric (max 32)')
   if (name in (config.mcpServers ?? {})) throw new Error(`name collides with static server: ${name}`)
   if (name in BUILTIN_SERVERS) throw new Error(`name collides with builtin server: ${name}`)
   if (!/^https?:\/\//.test(url)) throw new Error('url must start with http(s)')
@@ -167,6 +215,9 @@ async function registerServer(
     headers: opts.headers,
   })
   const tools = (await probed.client.listTools()).tools ?? []
+  // 探测连接直接入池复用：此前用完即弃（不 close 也不入池），每次注册泄漏一条连接
+  conns.set(name, { client: probed.client, connectedAt: Date.now() })
+  saveSnapshot()
   return { name, transport: probed.transport, tools: tools.map(t => ({ server: name, name: t.name, description: t.description ?? '', input_schema: t.inputSchema })) }
 }
 
@@ -179,6 +230,7 @@ async function unregisterServer(name: string): Promise<void> {
   toolsCache.delete(name)
   dynamicServers.delete(name)
   lastError.delete(name)
+  saveSnapshot()
 }
 
 // ── registry 内置工具（AI 自助注册的主要通道；纯文本 PII 勿写 skill_document）──
@@ -333,9 +385,14 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload)
 }
 
+const MAX_BODY_BYTES = 1024 * 1024 // 1MB：工具调用参数的合理天花板，防无鉴权端点被灌内存
+
 async function readBody(req: IncomingMessage): Promise<string> {
   let raw = ''
-  for await (const chunk of req) raw += chunk
+  for await (const chunk of req) {
+    raw += chunk
+    if (Buffer.byteLength(raw) > MAX_BODY_BYTES) throw new Error('payload too large')
+  }
   return raw
 }
 
@@ -370,7 +427,8 @@ const server = createServer(async (req, res) => {
     }
     json(res, 404, { error: 'not found' })
   } catch (e) {
-    json(res, 502, { error: e instanceof Error ? e.message.slice(0, 400) : 'gateway error' })
+    const msg = e instanceof Error ? e.message : 'gateway error'
+    json(res, msg === 'payload too large' ? 413 : 502, { error: msg.slice(0, 400) })
   }
 })
 
@@ -405,4 +463,6 @@ async function bootRegistrations(): Promise<void> {
   }
 }
 
+// 启动顺序：快照读回（known-unverified）→ env 预注册（运维当前意图，优先级更高）→ 懒握手
+loadSnapshot()
 void bootRegistrations()

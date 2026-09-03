@@ -11,13 +11,18 @@ function isUniqueViolation(e: unknown): boolean {
   return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === '23505'
 }
 
-export async function reserveOutreachSlot(db: Db, userId: string, dailyCap: number): Promise<number | null> {
-  const today = new Date().toISOString().slice(0, 10)
-  // 崩溃残留清理：非终态且 2h 未动的占位标 failed（槽位当日仍被占，日期滚动后自然释放）
+/** UTC 日戳（reservation_date 口径）；管线与抢槽必须用同一份，跨 UTC 午夜各自计算会错位。 */
+export function utcToday(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10)
+}
+
+export async function reserveOutreachSlot(db: Db, userId: string, dailyCap: number, today: string = utcToday()): Promise<number | null> {
+  // 崩溃残留清理：非终态且 2h 未动的占位标 failed。含历史日期（<=）：日期滚动后残留行
+  // 永不再被当日扫描触及，只清当日会永远留在表里
   await db.query(
     `UPDATE outreach
         SET status = 'failed', filter_reason = 'stale_reservation', updated_at = NOW()
-      WHERE user_id = $1 AND reservation_date = $2
+      WHERE user_id = $1 AND reservation_date <= $2
         AND status IN ('reserved','generated','delivery_pending')
         AND updated_at < NOW() - INTERVAL '2 hours'`,
     [userId, today],

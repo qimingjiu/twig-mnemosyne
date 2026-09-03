@@ -76,8 +76,10 @@ export interface DynamicToolsPolicy {
 export function dynamicToolsPolicy(file: CapFile = loadCapabilities()): DynamicToolsPolicy {
   const dt = file.dynamic_tools
   const lanes = dt?.lanes
+  // 键缺失（undefined）= 不收敛（3d66d07 历史行为）；显式空数组 = 处处禁用动态工具（fail-closed，
+  // 此前空数组被当成「没有约束」放行到所有泳道，语义正好写反）
   return {
-    lanes: Array.isArray(lanes) && lanes.length > 0 ? lanes : '*',
+    lanes: Array.isArray(lanes) ? lanes : '*',
     confirmationRequired: dt?.confirmation_required ?? true,
   }
 }

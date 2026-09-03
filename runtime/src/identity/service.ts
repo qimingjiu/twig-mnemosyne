@@ -64,12 +64,25 @@ function newEternalSessionId(): string {
 
 /**
  * T1.5：凭证暴力尝试限制（每 eternal_id+IP 10 次/15min）。进程内实现，多实例部署时迁 Redis。
+ * 容量上限 + 过期清扫：键含攻击者可控的 eternalId，无界增长会被打爆内存（DoS）。
  */
 export class AttemptLimiter {
   private map = new Map<string, { count: number; resetAt: number }>()
 
+  private static readonly MAX_ENTRIES = 50_000
+
   allow(key: string, max = 10, windowMs = 900_000): boolean {
     const now = Date.now()
+    if (this.map.size >= AttemptLimiter.MAX_ENTRIES) {
+      for (const [k, v] of this.map) {
+        if (v.resetAt < now) this.map.delete(k)
+      }
+      while (this.map.size >= AttemptLimiter.MAX_ENTRIES) {
+        const oldest = this.map.keys().next().value
+        if (oldest === undefined) break
+        this.map.delete(oldest)
+      }
+    }
     const entry = this.map.get(key)
     if (!entry || entry.resetAt < now) {
       this.map.set(key, { count: 1, resetAt: now + windowMs })
@@ -296,13 +309,27 @@ export async function webLogin(
     limiter.reset(limiterKey)
     return { clientKey, user, rotated: true }
   }
-  await db.query(
-    `INSERT INTO clients (user_id, client_type, key_hash, display_name, scopes, metadata)
-     VALUES ($1, 'web', $2, $3, '{chat}', '{}')`,
-    [user.id, sha256Hex(clientKey), 'Aegean Night Dashboard'],
-  )
+  let rotated = true
+  try {
+    await db.query(
+      `INSERT INTO clients (user_id, client_type, key_hash, display_name, scopes, metadata)
+       VALUES ($1, 'web', $2, $3, '{chat}', '{}')`,
+      [user.id, sha256Hex(clientKey), 'Aegean Night Dashboard'],
+    )
+    rotated = false
+  } catch (e) {
+    // 并发登录（双开标签页）都会看到「无 web client」：输家撞 UNIQUE(user_id, client_type)，
+    // 落到轮换分支而不是 500（此时 master_key 已验证通过，用户只差一步拿到 key）
+    if (!isUniqueViolation(e)) throw e
+    const { rows: again } = await db.query<{ id: string }>(
+      `SELECT id FROM clients WHERE user_id = $1 AND client_type = 'web' LIMIT 1`,
+      [user.id],
+    )
+    if (!again[0]) throw e
+    await db.query('UPDATE clients SET key_hash = $1 WHERE id = $2', [sha256Hex(clientKey), again[0].id])
+  }
   limiter.reset(limiterKey)
-  return { clientKey, user, rotated: false }
+  return { clientKey, user, rotated }
 }
 
 export interface ResolveSessionResult {
@@ -314,6 +341,9 @@ export interface ResolveSessionResult {
   isNew: boolean
 }
 
+/** migration 001 sessions.session_type CHECK 约束的白名单；提前校验免得脏值落到 23514 → 500 */
+const SESSION_TYPES = ['personal', 'coding', 'research', 'roleplay']
+
 /**
  * POST /v1/identity/session —— Session 归属校验（消解 D-02）：
  * 若 session 不属于当前认证 user → 403，而非创建或静默挂靠。
@@ -324,6 +354,9 @@ export async function resolveSession(
   user: UserRow,
   input: { eternalSessionId?: string; sessionType?: string },
 ): Promise<ResolveSessionResult> {
+  if (input.sessionType !== undefined && !SESSION_TYPES.includes(input.sessionType)) {
+    throw new IdentityError(400, 'bad_session_type', `session_type must be one of: ${SESSION_TYPES.join(', ')}`)
+  }
   if (input.eternalSessionId) {
     if (!isValidEternalSessionId(input.eternalSessionId)) {
       throw new IdentityError(400, 'bad_session_id', 'eternal_session_id must match ^sess_[a-f0-9]{64}$')
@@ -346,20 +379,41 @@ export async function resolveSession(
       }
     }
     // 不存在 → 以客户端提供的 ID 建档（绑定当前 user；后续归属校验照常生效）
-    const { rows: created } = await db.query<{ id: string; session_type: string; context_window: number }>(
-      `INSERT INTO sessions (user_id, session_type, eternal_session_id)
-       VALUES ($1, $2, $3) RETURNING id, session_type, context_window`,
-      [user.id, input.sessionType ?? 'personal', input.eternalSessionId],
-    )
-    const s = created[0]
-    if (!s) throw new IdentityError(500, 'insert_failed', 'session insert failed')
-    return {
-      sessionId: s.id,
-      eternalSessionId: input.eternalSessionId,
-      userId: user.id,
-      sessionType: s.session_type,
-      contextWindow: s.context_window,
-      isNew: true,
+    try {
+      const { rows: created } = await db.query<{ id: string; session_type: string; context_window: number }>(
+        `INSERT INTO sessions (user_id, session_type, eternal_session_id)
+         VALUES ($1, $2, $3) RETURNING id, session_type, context_window`,
+        [user.id, input.sessionType ?? 'personal', input.eternalSessionId],
+      )
+      const s = created[0]
+      if (!s) throw new IdentityError(500, 'insert_failed', 'session insert failed')
+      return {
+        sessionId: s.id,
+        eternalSessionId: input.eternalSessionId,
+        userId: user.id,
+        sessionType: s.session_type,
+        contextWindow: s.context_window,
+        isNew: true,
+      }
+    } catch (e) {
+      // 并发首用同一 eternal_session_id：输家撞 UNIQUE(eternal_session_id)。按归属校验语义
+      // 复查后复用赢家建档的行，而不是把 master_key 已通过的用户甩成 500
+      if (!isUniqueViolation(e)) throw e
+      const { rows: again } = await db.query<{ id: string; user_id: string; session_type: string; context_window: number }>(
+        `SELECT id, user_id, session_type, context_window FROM sessions WHERE eternal_session_id = $1`,
+        [input.eternalSessionId],
+      )
+      const existing = again[0]
+      if (!existing) throw e
+      if (existing.user_id !== user.id) throw new IdentityError(403, 'session_forbidden', 'session belongs to another user')
+      return {
+        sessionId: existing.id,
+        eternalSessionId: input.eternalSessionId,
+        userId: user.id,
+        sessionType: existing.session_type,
+        contextWindow: existing.context_window,
+        isNew: false,
+      }
     }
   }
 

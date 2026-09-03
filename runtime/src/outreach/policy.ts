@@ -62,7 +62,10 @@ export function inQuietHours(now: Date, tz: string | undefined, range: string): 
     return false // 非法时区按不静默处理，告警由调用方负责
   }
   const [hRaw, minRaw] = local.split(':')
-  const t = (Number(hRaw) ?? 0) * 60 + (Number(minRaw) ?? 0)
+  // en-GB + h24 在部分 ICU 版本把午夜格式化成 "24:00"：不归零的话，起点为 00:00 的静默区间
+  // 在恰好午夜那一分钟判定落空
+  const h = Number(hRaw) === 24 ? 0 : Number(hRaw)
+  const t = (Number.isNaN(h) ? 0 : h) * 60 + (Number(minRaw) ?? 0)
   const s = startH * 60 + startM
   const e = endH * 60 + endM
   if (s === e) return false

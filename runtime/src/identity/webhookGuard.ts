@@ -42,20 +42,59 @@ function range(cidr: string): V4Range {
 const BLOCKED_V4 = ['0.0.0.0/8', '10.0.0.0/8', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16'].map(range)
 const BLOCKED_V4_TUPLE: V4Range[] = BLOCKED_V4
 
+function intToV4(n: number): string {
+  return `${(n >>> 24) & 255}.${(n >>> 16) & 255}.${(n >>> 8) & 255}.${n & 255}`
+}
+
+/** 展开任意 IPv6 文本形式（含 :: 压缩与尾部点分 IPv4）为 8 组 16bit；解析失败返回 null。 */
+function expandV6(ip: string): number[] | null {
+  let rest = ip.toLowerCase()
+  // 尾部点分 IPv4（::ffff:1.2.3.4 / 64:ff9b::1.2.3.4）折算成两组 hex
+  const parts = rest.split(':')
+  const last = parts[parts.length - 1] ?? ''
+  if (last.includes('.')) {
+    const n = v4ToInt(last)
+    if (n === null) return null
+    rest = rest.slice(0, rest.length - last.length) + `${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`
+  }
+  const halves = rest.split('::')
+  if (halves.length > 2) return null
+  const parseGroups = (s: string): number[] | null => {
+    if (s === '') return []
+    const groups = s.split(':')
+    for (const g of groups) {
+      if (!/^[0-9a-f]{1,4}$/.test(g)) return null
+    }
+    return groups.map(g => parseInt(g, 16))
+  }
+  const head = parseGroups(halves[0] ?? '')
+  if (!head) return null
+  const tail = halves.length === 2 ? parseGroups(halves[1] ?? '') : []
+  if (!tail) return null
+  const fill = 8 - head.length - tail.length
+  if (fill < 0 || (halves.length === 1 && fill !== 0)) return null
+  return [...head, ...Array<number>(fill).fill(0), ...tail]
+}
+
 export function isBlockedIp(ip: string): boolean {
   if (ip.includes(':')) {
-    const lower = ip.toLowerCase()
-    // IPv4-mapped ::ffff:a.b.c.d
-    const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(lower)
-    if (mapped && mapped[1]) return isBlockedIp(mapped[1])
-    if (lower === '::1' || lower === '::') return true
-    // fc00::/7 → 首段 fc00–fdff；fe80::/10 → fe80–febf
-    const first = lower.split(':')[0] ?? ''
-    const hex = parseInt(first, 16)
-    if (!Number.isNaN(hex)) {
-      if (hex >= 0xfc00 && hex <= 0xfdff) return true
-      if (hex >= 0xfe80 && hex <= 0xfebf) return true
+    const groups = expandV6(ip)
+    if (!groups) return false // 无法解析的形态维持旧行为（不拦），白名单/复核兜底
+    // ::1 / ::
+    if (groups.every(g => g === 0)) return true
+    if (groups.slice(0, 7).every(g => g === 0) && groups[7] === 1) return true
+    // IPv4-mapped ::ffff:0:0/96（含 0:0:0:0:0:ffff:… 与 ::ffff:a00:1 等 hex 变体）
+    if (groups.slice(0, 5).every(g => g === 0) && groups[5] === 0xffff) {
+      return isBlockedIp(intToV4(((groups[6] ?? 0) << 16) | (groups[7] ?? 0)))
     }
+    // NAT64 64:ff9b::/96（DNS64 合成地址，嵌入 IPv4 同样可能是内网）
+    if (groups[0] === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every(g => g === 0)) {
+      return isBlockedIp(intToV4(((groups[6] ?? 0) << 16) | (groups[7] ?? 0)))
+    }
+    // fc00::/7 → 首段 fc00–fdff；fe80::/10 → fe80–febf
+    const first = groups[0] ?? 0
+    if (first >= 0xfc00 && first <= 0xfdff) return true
+    if (first >= 0xfe80 && first <= 0xfebf) return true
     return false
   }
   const n = v4ToInt(ip)
@@ -108,13 +147,15 @@ export async function validateWebhookUrl(rawUrl: string, opts: WebhookGuardOptio
   } catch {
     return { ok: false, reason: 'invalid_url' }
   }
-  // 1. scheme：仅 https（http 需显式 ALLOW_INSECURE_WEBHOOK=1，LAN 场景）
-  if (u.protocol !== 'https:' && !(opts.allowInsecure && u.protocol === 'http:')) {
+  // 1. scheme：仅 https。http 两条例外：显式 ALLOW_INSECURE_WEBHOOK=1（LAN 场景），或主机在
+  //    白名单内——白名单本身即运维信任声明（如 mnemosyne.zeabur.internal 内部出站端点），
+  //    只豁免它却仍要求公网 TLS 会让内部投递永远过不了校验。
+  const allowlisted = opts.allowlist.length > 0 && opts.allowlist.includes(u.hostname)
+  if (u.protocol !== 'https:' && !(opts.allowInsecure && u.protocol === 'http:') && !allowlisted) {
     return { ok: false, reason: 'scheme_not_allowed' }
   }
   // 4. 可选白名单：配置后仅允许列内主机。白名单本身即信任声明——列内主机豁免
   //    内网段检查（LAN 部署 / 本机联调场景），但仍要求 DNS 可解析（防拼写错误失效）。
-  const allowlisted = opts.allowlist.length > 0 && opts.allowlist.includes(u.hostname)
   if (opts.allowlist.length > 0 && !allowlisted) {
     return { ok: false, reason: 'host_not_in_allowlist' }
   }

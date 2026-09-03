@@ -272,9 +272,11 @@ async function jamendoSearch(query: string, limit: number): Promise<MusicSong[]>
   }))
 }
 
-/** 音乐结果统一信封：Runtime 识别 status:'music' 转 TG 附件（play）或纯文本（search）。 */
+/** 音乐结果统一信封：Runtime 识别 status:'music' 转 TG 附件（play）或纯文本（search）。
+ * 紧凑序列化 + 总量封顶：Runtime 侧 tool 结果统一按 4000 字截断（回灌/落库），
+ * pretty-print 的 30 首结果 ≈10KB 会被腰斩成非法 JSON，附件信封随之解析失败。 */
 export function musicEnvelope(action: 'search' | 'play', songs: MusicSong[]): string {
-  return JSON.stringify({ status: 'music', action, songs }, null, 2)
+  return JSON.stringify({ status: 'music', action, songs: songs.slice(0, 10) })
 }
 
 // ─────────────────────────────────────────────────────────────────────────

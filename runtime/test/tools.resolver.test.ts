@@ -1,7 +1,28 @@
 import { describe, it, expect } from 'vitest'
 import { toolsForLane, resolveTool, toOpenAiTools, summarizeArgs, enrichSchemas } from '../src/tools/resolver.js'
+import { dynamicToolsPolicy } from '../src/router/capabilities.js'
+import { mergeClientTools } from '../src/tools/resolver.js'
 import { matchesContestedDomain } from '../src/tools/contested.js'
 import type { TwigClaim } from '../src/memory/types.js'
+
+describe('§5.4 dynamic_tools 泳道白名单', () => {
+  it('显式空数组 = 处处禁用动态工具（fail-closed；此前被当成不收敛放行全部泳道）', () => {
+    expect(dynamicToolsPolicy({ lanes: {}, cap_domains: { contested_keywords: {} }, capabilities: {}, dynamic_tools: { lanes: [] } }).lanes).toEqual([])
+    expect(dynamicToolsPolicy({ lanes: {}, cap_domains: { contested_keywords: {} }, capabilities: {}, dynamic_tools: { lanes: ['tool'] } }).lanes).toEqual(['tool'])
+  })
+
+  it('dynamic_tools 键整体缺失 = 不收敛（3d66d07 历史行为，兼容未升级配置）', () => {
+    expect(dynamicToolsPolicy({ lanes: {}, cap_domains: { contested_keywords: {} }, capabilities: {} }).lanes).toBe('*')
+  })
+
+  it('enrichSchemas 按真实 dynamic_tools.lanes=[tool] 收敛：白名单外泳道不追加', () => {
+    const gw = [
+      { server: 'third_party', name: 'dynamic_fn', description: 'd', input_schema: { type: 'object', properties: {} } },
+    ]
+    expect(enrichSchemas(toolsForLane('chat'), gw, 'chat').find(t => t.fnName === 'third_party_dynamic_fn')).toBeUndefined()
+    expect(enrichSchemas(toolsForLane('tool'), gw, 'tool').find(t => t.fnName === 'third_party_dynamic_fn')).toBeDefined()
+  })
+})
 
 describe('§5 Tool Resolver（capability → MCP tool）', () => {
   it('泳道收敛 + provider→server 映射：chat 泳道含 time(core) 与 web(web 内置 server)', () => {
@@ -61,7 +82,9 @@ describe('§5 Tool Resolver（capability → MCP tool）', () => {
     expect(reg).toMatchObject({ server: 'registry', tool: 'register_server' })
     expect(reg?.confirmationRequired).toBe(true)
     expect(tools.find(t => t.fnName === 'registry_list_servers')?.confirmationRequired).toBe(false)
-    // invoke escape hatch 本身确认设为 false、但在下设立调用任意工具时，被服务治理那一层已做拦截的设计贯穿
+    // invoke 逃生舱必须带确认票（§5.4 注记的承诺）：不带的话一条网页注入就能
+    // registry_invoke(server=gmail, tool=send_mail)，把 mail 域的确认纪律整个旁路
+    expect(tools.find(t => t.fnName === 'registry_invoke')?.confirmationRequired).toBe(true)
   })
 
   it('债务 #13 收口：动态工具只进 dynamic_tools.lanes 白名单泳道（config 现为 [tool]）', () => {
@@ -104,5 +127,30 @@ describe('§4.7 contested 域匹配', () => {
   it('无关键词的 capability 恒不命中；反证：正常论断不命中', () => {
     expect(matchesContestedDomain([claim('随便什么')], 'music')).toBeUndefined()
     expect(matchesContestedDomain([claim('我喜欢日历提醒')], 'mail')).toBeUndefined()
+  })
+})
+
+describe('origin=client 工具透传（mergeClientTools）', () => {
+  const gw = (fnName: string): Parameters<typeof mergeClientTools>[0][number] =>
+    ({ fnName, server: 'core', tool: fnName, capability: 'time', description: 'd', parameters: {}, confirmationRequired: false })
+
+  it('客户端工具逐字保留（改名客户端就不认识），function 型之外的不进 client 列表', () => {
+    const m = mergeClientTools([gw('time_get_current_time')], [
+      { type: 'function', function: { name: 'my_local_scanner', description: '本地扫描', parameters: { type: 'object', properties: {} } } },
+      { type: 'web_search' }, // 厂商原生条目：走 nativeToolsPassthrough 门控，不属于 client 列表
+      { type: 'function' },   // 缺 function.name：丢弃
+    ])
+    expect(m.client).toHaveLength(1)
+    expect(m.client[0]?.function?.name).toBe('my_local_scanner')
+    expect(m.gateway).toHaveLength(1)
+    expect(m.shadowed).toEqual([])
+  })
+
+  it('撞名时客户端显式声明压过注册表：同名 fnName 本轮退场', () => {
+    const m = mergeClientTools([gw('web_search'), gw('time_get_current_time')], [
+      { type: 'function', function: { name: 'web_search' } },
+    ])
+    expect(m.gateway.map(t => t.fnName)).toEqual(['time_get_current_time'])
+    expect(m.shadowed).toEqual(['web_search'])
   })
 })

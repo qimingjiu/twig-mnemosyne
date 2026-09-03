@@ -20,8 +20,9 @@ export function extractClientKey(headers: Record<string, unknown>): string | nul
 export async function rateLimit(redis: Redis, key: string, max: number, windowSec: number): Promise<boolean> {
   try {
     const bucket = `ratelimit:${key}:${Math.floor(Date.now() / (windowSec * 1000))}`
+    // SET NX 原子建窗：INCR 后补 EXPIRE 在两步之间崩溃会留下永生键（每个事故键泄漏一份内存）
+    await redis.set(bucket, '0', 'EX', windowSec, 'NX')
     const n = await redis.incr(bucket)
-    if (n === 1) await redis.expire(bucket, windowSec)
     return n <= max
   } catch {
     return true

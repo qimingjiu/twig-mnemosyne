@@ -52,6 +52,10 @@ const EnvSchema = z.object({
   // §3.8 默认 fallback 链
   DEFAULT_MODEL_CHAIN: z.string().default('kimi-k2.6,gpt-4o,claude-sonnet,gemini-pro'),
 
+  // 单腿模型调用超时（原 120s 硬编码）：链式 fallback 最坏要排队吃满整条链的超时，
+  // 收紧到 90s 并开放配置；推理型模型思考偏长可调大
+  MODEL_TIMEOUT_MS: z.coerce.number().int().min(5_000).default(90_000),
+
   // Moonshot 官方 API 密钥
   MOONSHOT_API_KEY: z.string().default(''),
 })

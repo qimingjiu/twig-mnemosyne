@@ -15,6 +15,7 @@ import type { Redis } from 'ioredis'
 import { env } from '../config.js'
 import { getUserById, type ClientRow, type UserRow } from '../identity/service.js'
 import { handleChatCompletion, type Attachment, type ChatDeps } from '../chat/pipeline.js'
+import { isCrisis, DEFAULT_CRISIS_RESOURCES } from '../crisis/lexicon.js'
 
 const API = (token: string, method: string): string => `https://api.telegram.org/bot${token}/${method}`
 const TG_CHUNK = 3800
@@ -133,12 +134,35 @@ async function handleUpdate(deps: TgDeps, update: TgUpdate): Promise<void> {
   const user = await getUserById(deps.db, client.user_id)
   if (!user) return
 
-  const outcome = await handleChatCompletion(deps, {
-    client,
-    user,
-    messages: [{ role: 'user', content: msg.text }],
-    eternalSessionId: undefined, // 无 ID → 沿用该用户当前 active personal 会话（跨客户端连续身份）
-  })
+  // 生命体征（体感慢的特效药）：TG 非流式，生成期间零反馈最像「挂了」——
+  // 每 4s 续一次 typing，超过 25s 发一次「还在想」心跳；回复发送前全部撤下
+  const typing = setInterval(() => {
+    void tgCall(deps.botToken, 'sendChatAction', { chat_id: chatId, action: 'typing' }, 10_000).catch(() => undefined)
+  }, 4_000)
+  void tgCall(deps.botToken, 'sendChatAction', { chat_id: chatId, action: 'typing' }, 10_000).catch(() => undefined)
+  const stillThinking = setTimeout(() => {
+    void sendTelegram(deps.botToken, chatId, '还在想……').catch(() => undefined)
+  }, 25_000)
+
+  let outcome
+  try {
+    outcome = await handleChatCompletion(deps, {
+      client,
+      user,
+      messages: [{ role: 'user', content: msg.text }],
+      eternalSessionId: undefined, // 无 ID → 沿用该用户当前 active personal 会话（跨客户端连续身份）
+    })
+  } catch (e) {
+    console.error('[telegram] chat pipeline failed:', e instanceof Error ? e.message : e)
+    // 全链失败时的沉默对危机消息是最坏响应：静态兜底（零模型依赖，必达）
+    if (isCrisis(msg.text)) {
+      await sendTelegram(deps.botToken, chatId, DEFAULT_CRISIS_RESOURCES)
+    }
+    return
+  } finally {
+    clearInterval(typing)
+    clearTimeout(stillThinking)
+  }
   const payload = outcome.payload as {
     choices?: { message?: { content?: string } }[]
     mnemosyne?: { route_reason?: string }
@@ -186,6 +210,15 @@ export function startTelegramPolling(deps: TgDeps): void {
       return
     }
     let offset = 0
+    // 重启跳过积压：offset=-1 取最后一条，从其后开始消费——不跳的话滚动部署会把
+    // 宕机期间的整段对话回放一遍，bot 对迟到消息逐条补发（鸦巢实战坑）
+    try {
+      const backlog = await tgCall<TgUpdate[]>(token, 'getUpdates', { offset: -1, timeout: 0, allowed_updates: ['message'] }, 15_000)
+      const last = backlog[backlog.length - 1]
+      if (last) offset = last.update_id + 1
+    } catch (e) {
+      console.warn('[telegram] backlog skip failed, consuming from 0:', e instanceof Error ? e.message : e)
+    }
     for (;;) {
       try {
         const updates = await tgCall<TgUpdate[]>(token, 'getUpdates', {

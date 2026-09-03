@@ -25,18 +25,23 @@ export async function deliverOutreach(
 ): Promise<DeliveryResult> {
   const { rows } = await db.query<{ webhook_url: string }>(
     `SELECT webhook_url FROM clients
-      WHERE user_id = $1 AND is_active = TRUE AND webhook_url IS NOT NULL`,
+      WHERE user_id = $1 AND is_active = TRUE AND webhook_url IS NOT NULL
+      ORDER BY created_at`,
     [userId],
   )
   if (rows.length === 0) return { ok: false, error: 'no_webhook_client' }
 
+  const errors: string[] = []
   for (const row of rows) {
     const verdict = await validateWebhookUrl(row.webhook_url, guard) // 每次投递重新解析（§2.5.1 第 3 条）
-    if (!verdict.ok) return { ok: false, error: verdict.reason }
+    if (!verdict.ok) {
+      errors.push(`${row.webhook_url.slice(0, 40)}: ${verdict.reason}`)
+      continue // 其余 client 仍要尝试（此前首个失败即 return，后面的 client 永远收不到）
+    }
     // lookup 钉扎 + TLS 证书仍按 hostname 校验；Agent 用毕销毁，不漏 socket
     const dispatcher = new Agent({ connect: { lookup: pinnedLookup(guard) } })
     try {
-      await undiciFetch(row.webhook_url, {
+      const res = await undiciFetch(row.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,12 +52,15 @@ export async function deliverOutreach(
         signal: AbortSignal.timeout(5000),
         dispatcher,
       })
-      // 响应体丢弃不读（盲 webhook，无回传通道）
+      // 响应体丢弃不读（盲 webhook，无回传通道），但状态码必须看：
+      // fetch 只在网络层抛错，4xx/5xx 会静默当成功 → outreach 被标 delivered、用户永远收不到
+      if (!res.ok) errors.push(`${row.webhook_url.slice(0, 40)}: delivery_http_${res.status}`)
     } catch (e) {
-      return { ok: false, error: e instanceof Error && e.name === 'AbortError' ? 'delivery_timeout' : 'delivery_failed' }
+      errors.push(`${row.webhook_url.slice(0, 40)}: ${e instanceof Error && e.name === 'AbortError' ? 'delivery_timeout' : 'delivery_failed'}`)
     } finally {
       void dispatcher.destroy()
     }
   }
+  if (errors.length > 0) return { ok: false, error: errors.join('; ').slice(0, 500) }
   return { ok: true }
 }

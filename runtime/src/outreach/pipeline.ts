@@ -12,7 +12,7 @@ import type { ModelGateway } from '../gateways/litellm.js'
 import type { UserRow } from '../identity/service.js'
 import { validateWebhookUrl, type WebhookGuardOptions } from '../identity/webhookGuard.js'
 import { loadHuginnConfig, evaluatePolicy, type HuginnConfig } from './policy.js'
-import { reserveOutreachSlot, outreachDedupeKey, minuteBucket } from './reserve.js'
+import { reserveOutreachSlot, outreachDedupeKey, minuteBucket, utcToday } from './reserve.js'
 import { scanCandidate } from './candidates.js'
 import { generateOutreach } from './generate.js'
 import { deliverOutreach } from './deliver.js'
@@ -69,35 +69,23 @@ async function markFiltered(
   slot: number,
   reason: string,
 ): Promise<void> {
+  // status IN ('reserved','generated')：Final Policy Check（步骤 6）在文案已生成之后运行，
+  // 行状态已是 'generated'——只匹配 'reserved' 会 0 行命中，filter_reason 静默丢失（AUDIT-11）
   await db.query(
     `UPDATE outreach SET status = 'filtered', filter_reason = $1, updated_at = NOW()
-      WHERE user_id = $2 AND reservation_date = $3 AND slot_number = $4 AND status = 'reserved'`,
+      WHERE user_id = $2 AND reservation_date = $3 AND slot_number = $4 AND status IN ('reserved','generated')`,
     [reason, userId, date, slot],
   )
 }
-
-async function markTerminal(
-  db: Pool,
-  userId: string,
-  date: string,
-  slot: number,
-  reason: string,
-): Promise<void> {
-  await db.query(
-    `UPDATE outreach SET status = 'failed', filter_reason = $1, updated_at = NOW()
-      WHERE user_id = $2 AND reservation_date = $3 AND slot_number = $4`,
-    [reason, userId, date, slot],
-  )
-}
-void markTerminal
 
 export async function processUser(deps: OutreachDeps, user: UserRow): Promise<void> {
   const { db, cfg } = deps
   const log = deps.log ?? (() => undefined)
-  const today = new Date().toISOString().slice(0, 10)
+  // 与 reserveOutreachSlot 用同一份日戳：跨 UTC 午夜各自 new Date() 会把状态更新打到错误日期
+  const today = utcToday()
 
   // 1. 原子抢槽（INV-H01：sent_today ≤ daily_cap）
-  const slot = await reserveOutreachSlot(db, user.id, cfg.daily_cap)
+  const slot = await reserveOutreachSlot(db, user.id, cfg.daily_cap, today)
   if (!slot) return
 
   // 2. 初始策略扫描（快速淘汰，减少无效 slot 占用）
@@ -171,6 +159,8 @@ export async function processUser(deps: OutreachDeps, user: UserRow): Promise<vo
 }
 
 export async function runScan(deps: OutreachDeps): Promise<void> {
+  // delivery_pending 的重试不在本管线：主管线只管抢新槽生成新文案，打捞归 Outbox Worker
+  // （backoff 退避 + 幂等键复用，见 outboxWorker.ts）
   const { rows } = await deps.db.query<UserRow>(
     `SELECT id, eternal_id, display_name, email, master_key_hash, crisis_silence_until, preferences FROM users`,
   )
