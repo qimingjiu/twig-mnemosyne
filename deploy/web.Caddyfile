@@ -27,6 +27,11 @@
 	handle {
 		root * /srv/www
 		try_files {path} {path}.html
+		# HTML 入口无内容指纹：禁启发式缓存，否则新版页面被浏览器旧缓存顶住（2026-09-03 console 上线踩坑）
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@nothashed not path /assets/*
+		header @nothashed Cache-Control "no-cache"
 		file_server
 	}
 }
