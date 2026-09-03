@@ -75,3 +75,38 @@ curl -X POST https://<mnemosyne-domain>/v1/chat/completions \
   建完必须把 `MCP_GATEWAY_URL` 写进 mnemosyne 环境变量（私有地址 :3000），否则工具静默全废。
 - Ollama 本地 lane：专用服务器无 GPU/大内存，形态 A（自有设备经 Tailscale 接入）是唯一可行形态，`OLLAMA_API_BASE` 指向 tailnet IP。
 - 监控（prometheus/grafana profile）：2C4G 不建议常驻；`/metrics` 已暴露，需要时再挂外部 Prometheus 拉取。
+
+## 本地备份（备份目的地 = 家用电脑，2026-09-03 收口 §13.6 债务）
+
+`scripts/backup-local.mjs`：你自己的电脑定时来拉，零云端成本。覆盖物与 VPS 版 `backup.sh` 同口径——
+**postgres 逻辑备份 + twig 叙事数据全量快照**；Redis 不备（缓存可再生）。
+
+### 一次性准备
+
+1. **postgres 开公网**：Zeabur 控制台 → postgres 服务 → Networking → 开启公网访问（拿到 host:port）。
+   密码认证兜底；介意暴露可在拉取时段外关闭，但那就不是无人值守了——个人部署建议常开 + 强密码。
+2. **本机装 pg 客户端**：`winget install PostgreSQL.PostgreSQL.16`（含 pg_dump.exe）。
+3. 建 `scripts/backup.local.env`（不入 git，已进 .gitignore）：
+
+```
+BACKUP_ROOT=D:\backups\mnemosyne
+PGBACKUP_URL=postgresql://mnemosyne:<DB_PASSWORD>@<postgres公网host>:<port>/mnemosyne
+PGDUMP_BIN=C:\Program Files\PostgreSQL\16\bin\pg_dump.exe
+MNEMOSYNE_BASE=https://<mnemosyne-domain>
+MNEMOSYNE_ETERNAL_ID=<64位hex>
+MNEMOSYNE_MASTER_KEY=<master_key>
+RETAIN_DAYS=14
+```
+
+4. 试跑一次：`node scripts/backup-local.mjs`（产物在 BACKUP_ROOT 下 `pg/*.dump` + `twig/<日期>/*.json`）。
+5. 注册每日 04:30 定时任务（管理员 PowerShell，`<repo>` 换实际路径）：
+
+```
+schtasks /Create /SC DAILY /ST 04:30 /TN MnemosyneBackup /TR "cmd /c cd /d <repo> && node scripts\backup-local.mjs >> backups\backup.log 2>&1"
+```
+
+### 恢复
+
+- postgres：`pg_restore --no-owner --dbname <连接串> <dump 文件>`
+- twig：叙事快照是语义层 JSON（journal/soliloquy/claims/state/notes/stamps/context/audit），
+  灾后重建 twig 卷后经 web 前端/CLI 按 JSON 重灌；卷级快照（Zeabur 卷 snapshot）作为补充手段。

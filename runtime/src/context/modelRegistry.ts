@@ -10,8 +10,13 @@ export interface ModelSpec {
   maxOutput: number
   lane: 'cloud' | 'local'
   provider: string
-  /** 推理型模型温度上限：litellm 对 reasoning-active 模型拒 temperature>1（UnsupportedParamsError） */
+  /** 推理型模型温度上限：litellm 对 reasoning-active 模型拒 temperature>1（UnsupportedParamsError）；≤1 原样放行 */
   maxTemperature?: number
+  /**
+   * Moonshot 系上游只接受 temperature=1（「invalid temperature: only 1 allowed」）——
+   * 与 maxTemperature 的「≤1 收敛」区分：lock 时无论请求值一律返回 1。
+   */
+  temperatureLock?: boolean
 }
 
 export const MODEL_REGISTRY: Record<string, ModelSpec> = {
@@ -30,12 +35,13 @@ export const MODEL_REGISTRY: Record<string, ModelSpec> = {
   // 硅基流动 · GLM-5.2
   'glm-5.2': { contextWindow: 128000, maxOutput: 8192, lane: 'cloud', provider: 'siliconflow' },
   // ── Moonshot 官方 API（OpenAI 兼容）──
-  // kimi-k3 是温度锁=1 的 reasoning 型（2026-09-01「AI 死了二症」：未标上限→默认 0.7→上游 400
-  // 「invalid temperature: only 1 allowed」→首选用错第二个也连跪下一路）。四目 Moonshot 都标上。
-  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
-  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
-  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
-  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1 },
+  // Moonshot 四目温度锁死=1（2026-09-01「AI 死了二症」：0.7 也被上游 400
+  // 「invalid temperature: only 1 allowed」→首选用错第二个也连跪下一路）。
+  // 注意与 gpt-5.6 系的 maxTemperature=1 区分：那是「≤1 收敛」，0.7 合法（5fc3571）。
+  'kimi-k3': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1, temperatureLock: true },
+  'kimi-k2.7-code': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1, temperatureLock: true },
+  'kimi-k2.7-code-highspeed': { contextWindow: 262000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1, temperatureLock: true },
+  'kimi-k2.6': { contextWindow: 256000, maxOutput: 8192, lane: 'cloud', provider: 'moonshot', maxTemperature: 1, temperatureLock: true },
   // ── CommandCode 中转（2026-09-01 批量接入，套餐内模型；名称与窗口经账号 /models + 实测核对，
   //    文档 v2026-08-26 已过时——GLM-5.3 系列文档漏了）──
   // Mnemosyne 别名 ≠ 上游名：litellm 侧逐字透传 CommandCode API 模型名（deploy/litellm/config.yaml）。
@@ -68,7 +74,8 @@ export function providerOf(name: string): string {
  * 推理型模型（maxTemperature=1）强制 temperature=1，任何其他值上游都会拒（OpenAIException: only 1 is allowed）。
  */
 export function clampTemperature(temp: number, model: string): number {
-  const cap = MODEL_REGISTRY[model]?.maxTemperature
-  if (cap === 1) return 1 // reasoning 型锁死 temperature=1
+  const spec = MODEL_REGISTRY[model]
+  if (spec?.temperatureLock) return 1 // Moonshot 系：只接受 temperature=1，无论请求值
+  const cap = spec?.maxTemperature
   return cap !== undefined ? Math.min(temp, cap) : temp
 }

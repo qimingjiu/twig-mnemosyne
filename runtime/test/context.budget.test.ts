@@ -55,7 +55,8 @@ describe('§6.4 模型注册表（VULN-06 配套）', () => {
 
   it('OpenAI 兼容中转模型已登记（2026-08-30 接入）', () => {
     expect(lookupModel('gemini-3.7-flash')).toMatchObject({ lane: 'cloud', provider: 'commandcode' })
-    expect(lookupModel('kimi-k3')).toMatchObject({ lane: 'cloud', provider: 'opencode' })
+    // kimi-k3 等四目已迁 Moonshot 官方 API（api.moonshot.cn），不再是 opencode/CommandCode 中转
+    expect(lookupModel('kimi-k3')).toMatchObject({ lane: 'cloud', provider: 'moonshot', temperatureLock: true })
     expect(lookupModel('gpt-5.6-luna')).toMatchObject({ lane: 'cloud', provider: 'opencode' })
     expect(lookupModel('glm-5.2')).toMatchObject({ lane: 'cloud', provider: 'siliconflow' })
     expect(lookupModel('gemini-3.1-flash-lite')).toBeUndefined() // 套餐不含，已下架

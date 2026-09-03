@@ -59,10 +59,10 @@ LiteLLM 层明确不配 response cache（litellm.yaml 头注）；厂商侧命�
 | 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；**前置条件：narrativeVersion 稳定化**——promptText 按 §18.1 含 recentStamps 等每轮漂移信号，nv=sha256(promptText) 逐轮变化，§7.3「nv 相等才命中」的语义缓存在此之前无生存空间（exact 键同源受累，R3 已修 temperature 收敛值问题） |
 | DNS rebinding 钉扎 | identity/webhookGuard | ✅ 已收口（2026-09-03）：pinnedLookup 把解析→校验→连接收敛进同一次 lookup，deliver.ts 经 undici Agent + undici fetch 连接已校验 IP，TOCTOU 窗口消除；T8.5 用例扩到钉扎层与 E2E 投递 |
 | 真流式（上游 token 级透传） | http/routes / chat/pipeline / gateways | ✅ 已收口（2026-09-03）：gateway.chatStream（SSE 解析 + tool_calls 片段合并 + stream_options 取 usage），管线 onDelta 透传，路由 sink 惰性开流（首帧前失败保持 JSON 状态码；已发帧禁链内 fallback 防重复文本）；缓存命中仍整段重放 |
-| 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续 |
+| 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续。注：「web 也是客户端」在 identity 层为真（client_type='web'，浏览器持自己的 client_key），但**对话面尚未接入**——BFF 无 /v1/web/chat 路由，console 页是静态稿；管线已支持真流式，接 chat 页时可直接复用 |
 | OTel → Collector | observability | prom-client 直采（务实 v0） |
 | Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
 | vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似（详见 docs/upstream.md） |
-| Telegram 激活 | telegram/adapter | 代码+绑定脚本就绪；填 TELEGRAM_BOT_TOKEN + 绑 chat_id 即活（见 deploy/zeabur.md） |
-| 自动备份 | — | backup.sh 为 VPS 路线；Zeabur 路线待接定时任务（设计债务，同 §24 硬件层） |
+| Telegram 激活 | telegram/adapter | ✅ 已激活（2026-08 下旬起 TG 为日常通道，运行中） |
+| 自动备份 | — | ✅ 已收口（2026-09-03，本地拉取路线）：`scripts/backup-local.mjs`（postgres pg_dump + twig 叙事全量 JSON 快照，14 天滚动保留），一次性准备与 schtasks 注册见 `deploy/zeabur.md` 本地备份节；零云端成本 |
 | 泳道白名单对动态工具不生效 | tools/resolver | ✅ 已收口（2026-09-03）：capabilities.yaml 新增 `dynamic_tools.lanes`（现值 [tool]），enrichSchemas 按 lane 参数收敛动态工具；chat 等泳道经 registry.invoke 逃生舱仍可达（确认票兜底）。lane 缺省=不收敛（兼容 3d66d07 行为）。注：SCOUT 上马后可进一步按检索 top-k 收数量 |
