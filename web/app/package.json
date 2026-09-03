@@ -1,7 +1,7 @@
 {
   "name": "mnemosyne-dashboard",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "爱琴海之夜 Dashboard —— Mnemosyne web 前端（Vite MPA，浏览器只对 runtime /v1/web/* 说话）",
   "scripts": {

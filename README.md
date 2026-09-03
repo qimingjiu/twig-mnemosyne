@@ -2,6 +2,8 @@
 
 > 跨客户端、跨会话、跨模型的连续身份运行时。Your memory never dies.
 
+[![版本](https://img.shields.io/badge/version-v1.0.0-4a7fa5)](https://github.com/qimingjiu/twig-mnemosyne/releases) [![测试](https://img.shields.io/badge/tests-154%2F154-c9a227)](docs/testing.md) [![License: MIT](https://img.shields.io/badge/license-MIT-8a9a5b)](LICENSE)
+
 Mnemosyne 是一个单用户、自托管的 AI 陪伴运行时：Telegram bot、Web Dashboard、任意支持
 MCP 的 AI 客户端都通过同一套身份凭证接入，由它统一完成身份认证、上下文装配、隐私分层、
 危机干预与主动触达（Huginn）；长期记忆与叙事由上游
@@ -85,6 +87,7 @@ node_modules；目录在 `.gitignore` 中，不入库）。上游更新后重新
 
 | 文档 | 内容 |
 |---|---|
+| [CHANGELOG.md](CHANGELOG.md) | 版本编年史（v1.0.0 起） |
 | [docs/Mnemosyne_Technical_Implementation_Document_v0.3.0_complete.md](docs/Mnemosyne_Technical_Implementation_Document_v0.3.0_complete.md) | 总设计文档（各处 § 引用的出处） |
 | [docs/Mnemosyne_Technical_Implementation_Document_v0.3.1_patch.md](docs/Mnemosyne_Technical_Implementation_Document_v0.3.1_patch.md) | v0.3.1 增量补丁 |
 | [docs/upstream.md](docs/upstream.md) | 上游契约对齐记录、施工偏差、R1–R5 配合状态 |

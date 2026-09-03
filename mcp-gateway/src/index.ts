@@ -109,14 +109,14 @@ function serverConfig(name: string): ServerConfig | undefined {
  */
 async function probeRemote(url: string, headers?: Record<string, string>): Promise<{ client: Client; transport: 'streamable-http' | 'sse' }> {
   const target = new URL(url)
-  const client = new Client({ name: 'mnemosyne-mcp-gateway', version: '0.1.0' })
+  const client = new Client({ name: 'mnemosyne-mcp-gateway', version: '1.0.0' })
   try {
     // TODO(broker): OAuth 型远程 server 在此注入 Broker 短票 header（§5.3）
     await client.connect(new StreamableHTTPClientTransport(target, { requestInit: { headers } }))
     return { client, transport: 'streamable-http' }
   } catch (err) {
     await client.close().catch(() => undefined)
-    const sseClient = new Client({ name: 'mnemosyne-mcp-gateway', version: '0.1.0' })
+    const sseClient = new Client({ name: 'mnemosyne-mcp-gateway', version: '1.0.0' })
     try {
       await sseClient.connect(new SSEClientTransport(target, { requestInit: { headers } }))
       return { client: sseClient, transport: 'sse' }
@@ -148,7 +148,7 @@ async function connect(server: string): Promise<Conn> {
   if (cfg.type === 'local' && cfg.command) {
     const [command, ...args] = cfg.command
     if (!command) throw new Error(`bad command for ${server}`)
-    const local = new Client({ name: 'mnemosyne-mcp-gateway', version: '0.1.0' })
+    const local = new Client({ name: 'mnemosyne-mcp-gateway', version: '1.0.0' })
     await local.connect(new StdioClientTransport({ command, args, stderr: 'ignore' }))
     client = local
   } else if (cfg.type === 'remote' && cfg.url) {

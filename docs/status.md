@@ -1,6 +1,6 @@
 # 实现状态与模块对照
 
-状态截至 2026-09-03（v0.3.1 基线 + 0903 修订批次：缓存命中面 R0–R4、真流式 #5、DNS 钉扎 #6、
+状态截至 2026-09-04（**v1.0.0 已封印**，tag 挂 `a7b149de`；v0.3.1 基线 + 0903 修订批次：缓存命中面 R0–R4、真流式 #5、DNS 钉扎 #6、
 动态工具泳道 #13、本地备份、console 对话面、记忆写操作；测试 137/137）。
 **0903 发布前全仓审查批次**（推正式版前 bug 清剿，测试 146/146）：
 主管线（缓存 try 圈收窄防失败重跑重复输出；当前用户消息经 excludeMessageId 排除、不再重复进装配；
@@ -23,7 +23,7 @@ JWT_SECRET；generateOutreach 补 clampTemperature（kimi 温度锁不再断生�
 记档未改：resolveSession by-ID 不看 is_active（无写入方，休眠字段）；feed/metrics 的
 intervention_pending 死过滤（无害）；TG 轮询串行（60s 工具回路会堵后续消息）；chatStream 120s
 是总超时非空闲超时；/metrics 公开（公网暴露面建议在 caddy 侧收敛）。
-**0904 三批（发布日功能收口，测试 153/153）**：
+**0904 三批（发布日功能收口，测试 154/154 全绿）**：
 ① **origin=client 工具透传**——ChatBodySchema 收 OpenAI 标准 tools/tool_choice（消息对象 passthrough，
 tool_calls 活过校验层）；mergeClientTools 与注册表工具合流去重（撞名时客户端显式声明压过注册表）；
 executeToolLoop 分流执行：origin=gateway 服务端执行（确认票/contested 照走），origin=client 终止回路、

@@ -1,6 +1,6 @@
 {
   "name": "mnemosyne-mcp-gateway",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Mnemosyne MCP Gateway — lazy MCP client aggregator (stdio + streamable HTTP) with built-in core tools; no DB credentials by design (§5.3)",
   "license": "MIT",
   "type": "module",
