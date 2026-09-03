@@ -3,11 +3,12 @@
  *
  * 入库时与每次投递时各过一次；投递时重新解析 DNS（防 rebinding：入库合法、TTL 过期后改指内网）。
  *
- * TODO(rebinding-hardening): 严格的 rebinding 防御需要在 fetch 时钉住本次解析到的 IP
- * （undici Agent 自定义 connect lookup），当前实现为「投递前重校验」近似，与 §2.5.1 第 3 条
- * 之间存在微小 TOCTOU 窗口；后续以 undici Dispatcher 补齐。
+ * 2026-09-03 债务 #6 收口（原 TODO rebinding-hardening）：pinnedLookup 把「解析 → 校验 → 连接」
+ * 收敛进同一次 lookup，投递经 undici Agent 使用它连接——validateWebhookUrl 与实际 fetch 之间
+ * 的 TOCTOU 窗口消除。TLS 证书仍按原 hostname 校验（连接钉到已校验 IP，SNI 不变）。
  */
 import { promises as dns } from 'node:dns'
+import type { LookupFunction } from 'node:net'
 
 interface V4Range {
   lo: number
@@ -68,6 +69,36 @@ export interface WebhookGuardOptions {
 }
 
 export type WebhookGuardResult = { ok: true; host: string } | { ok: false; reason: string }
+
+/**
+ * 钉扎 lookup（债务 #6）：供 undici Agent 的 connect.lookup 使用。
+ * 解析 → 内网校验（白名单豁免，与 validateWebhookUrl 同规则）→ 返回已校验地址，
+ * 连接层只会连到这个地址——校验与连接之间没有二次解析。
+ */
+export function pinnedLookup(opts: WebhookGuardOptions): LookupFunction {
+  return (hostname, options, callback) => {
+    const allowlisted = opts.allowlist.includes(hostname)
+    dns.lookup(hostname, { all: true })
+      .then(addrs => {
+        if (addrs.length === 0) {
+          callback(new Error('dns_no_address'), '', 0)
+          return
+        }
+        if (!allowlisted && addrs.some(a => isBlockedIp(a.address))) {
+          callback(new Error('host_resolves_to_private_range'), '', 0)
+          return
+        }
+        const family = typeof options.family === 'number' ? options.family : 0
+        const pick = (family === 4 || family === 6 ? addrs.find(a => a.family === family) : undefined) ?? addrs[0]
+        if (!pick) {
+          callback(new Error('dns_no_address'), '', 0)
+          return
+        }
+        callback(null, pick.address, pick.family)
+      })
+      .catch(() => callback(new Error('dns_failure'), '', 0))
+  }
+}
 
 /** 投递前必须重新调用（§2.5.1 第 3 条），不能缓存「入库时已通过」的结论。 */
 export async function validateWebhookUrl(rawUrl: string, opts: WebhookGuardOptions): Promise<WebhookGuardResult> {

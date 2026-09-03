@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { isBlockedIp, validateWebhookUrl } from '../src/identity/webhookGuard.js'
+import { createServer, type Server } from 'node:http'
+import { isBlockedIp, validateWebhookUrl, pinnedLookup } from '../src/identity/webhookGuard.js'
+import { deliverOutreach } from '../src/outreach/deliver.js'
+import type { Db } from '../src/db.js'
 
 describe('§2.5.1 Webhook 校验链（VULN-13 / T8.5 SSRF）', () => {
   it('IPv4 私网/环回/云元数据全拦截', () => {
@@ -63,5 +66,51 @@ describe('§2.5.1 Webhook 校验链（VULN-13 / T8.5 SSRF）', () => {
 
   it('非法 URL 直接拒绝', async () => {
     expect((await validateWebhookUrl('not a url', { allowInsecure: false, allowlist: [] })).ok).toBe(false)
+  })
+})
+
+describe('§2.5.1 R6 钉扎：pinnedLookup + 钉扎 dispatcher 投递', () => {
+  // 字面 IP 的 dns.lookup 本地完成，离线可测
+  const call = (opts: { allowInsecure: boolean; allowlist: string[] }, hostname: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      pinnedLookup(opts)(hostname, { family: 0, all: false }, (err, address) =>
+        err ? reject(err) : resolve(address as string),
+      )
+    })
+
+  it('私网解析在 connect 层拒绝（校验与连接同一次 lookup，TOCTOU 收口）', async () => {
+    await expect(call({ allowInsecure: true, allowlist: [] }, '127.0.0.1')).rejects.toThrow('host_resolves_to_private_range')
+    await expect(call({ allowInsecure: true, allowlist: [] }, '10.1.2.3')).rejects.toThrow('host_resolves_to_private_range')
+  })
+
+  it('公网地址放行并返回钉住的 IP；白名单主机豁免内网检查', async () => {
+    expect(await call({ allowInsecure: true, allowlist: [] }, '8.8.8.8')).toBe('8.8.8.8')
+    expect(await call({ allowInsecure: true, allowlist: ['127.0.0.1'] }, '127.0.0.1')).toBe('127.0.0.1')
+  })
+
+  it('E2E：钉扎 dispatcher 投递到本地 webhook（allowlist 豁免路径）', async () => {
+    const server: Server = createServer((req, res) => { res.statusCode = 200; res.end('ok') })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const port = (server.address() as { port: number }).port
+    try {
+      const db = { query: async () => ({ rows: [{ webhook_url: `http://127.0.0.1:${port}/hook` }] }) } as unknown as Db
+      const result = await deliverOutreach(db, { allowInsecure: true, allowlist: ['127.0.0.1'] }, 'u1', 'hi', 'k1')
+      expect(result.ok).toBe(true)
+    } finally {
+      server.close()
+    }
+  })
+
+  it('E2E：非白名单主机解析到内网 → 钉扎层拒绝投递', async () => {
+    const server: Server = createServer((req, res) => { res.statusCode = 200; res.end('ok') })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    try {
+      // localhost 解析 127.0.0.1/::1，均落内网段且不在 allowlist
+      const db = { query: async () => ({ rows: [{ webhook_url: `http://localhost:${(server.address() as { port: number }).port}/hook` }] }) } as unknown as Db
+      const result = await deliverOutreach(db, { allowInsecure: true, allowlist: [] }, 'u1', 'hi', 'k2')
+      expect(result).toMatchObject({ ok: false, error: 'host_resolves_to_private_range' })
+    } finally {
+      server.close()
+    }
   })
 })

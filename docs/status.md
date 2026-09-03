@@ -45,6 +45,9 @@ GREATEST monotonic 静默期、加密独立审计）、Context Builder（预算�
 语义截断 / ElevenLabs / 60s 即焚）、记忆搬家 CLI（§23）、prom-client 指标、
 web BFF（`/v1/web/*`）与爱琴海之夜 Dashboard 第一层数据接入、OpenAI 兼容面（`/v1/models` 模型列表 +
 chat 假流式 chunk 重放——RikkaHub 等标准 OpenAI 客户端可直连，stream=true 不再 501）。
+缓存与厂商前缀缓存对齐（2026-09-03 R0–R4）：装配 stable→volatile（叙事包独立成消息置于历史后，
+builder.ts）、Anthropic cache_control 断点只标稳定段、exact 键 temperature 用收敛值、
+LiteLLM 层明确不配 response cache（litellm.yaml 头注）；厂商侧命中率观测脚本 `scripts/cache-report.sql`。
 
 ## 未实现（接口位已留，见代码内 TODO 锚点）
 
@@ -53,12 +56,13 @@ chat 假流式 chunk 重放——RikkaHub 等标准 OpenAI 客户端可直连，
 | 工具 schema 检索（§5.2.2 SCOUT） | tools/resolver | 当前按泳道全量注入（个人规模 ~10 工具足够）；BM25+向量混合检索待工具数量增长后接 |
 | Broker 短票动态取件 | mcp-gateway | OAuth 型远程 MCP server 接入时启用（§5.3 端点已就绪并测试） |
 | LangGraph StateGraph | router/lanes | 单分类器轻量实现已满足泳道收敛；图编排待复杂泳道需求 |
-| 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；exact/context 两层已覆盖 |
+| 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；**前置条件：narrativeVersion 稳定化**——promptText 按 §18.1 含 recentStamps 等每轮漂移信号，nv=sha256(promptText) 逐轮变化，§7.3「nv 相等才命中」的语义缓存在此之前无生存空间（exact 键同源受累，R3 已修 temperature 收敛值问题） |
 | 真流式（上游 token 级透传） | http/routes | 已提供假流式：同步补全按 OpenAI chunk 协议重放（SSE）；上游 token 级流式未接 |
-| DNS rebinding 钉扎 | identity/webhookGuard | 投递前重解析近似；严格版需 undici Dispatcher 钉 IP |
+| DNS rebinding 钉扎 | identity/webhookGuard | ✅ 已收口（2026-09-03）：pinnedLookup 把解析→校验→连接收敛进同一次 lookup，deliver.ts 经 undici Agent + undici fetch 连接已校验 IP，TOCTOU 窗口消除；T8.5 用例扩到钉扎层与 E2E 投递 |
 | 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续 |
 | OTel → Collector | observability | prom-client 直采（务实 v0） |
 | Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
 | vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似（详见 docs/upstream.md） |
 | Telegram 激活 | telegram/adapter | 代码+绑定脚本就绪；填 TELEGRAM_BOT_TOKEN + 绑 chat_id 即活（见 deploy/zeabur.md） |
 | 自动备份 | — | backup.sh 为 VPS 路线；Zeabur 路线待接定时任务（设计债务，同 §24 硬件层） |
+| 泳道白名单对动态工具不生效 | tools/resolver | ✅ 已收口（2026-09-03）：capabilities.yaml 新增 `dynamic_tools.lanes`（现值 [tool]），enrichSchemas 按 lane 参数收敛动态工具；chat 等泳道经 registry.invoke 逃生舱仍可达（确认票兜底）。lane 缺省=不收敛（兼容 3d66d07 行为）。注：SCOUT 上马后可进一步按检索 top-k 收数量 |
