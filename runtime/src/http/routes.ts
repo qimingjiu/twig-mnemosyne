@@ -350,6 +350,7 @@ export function createStreamSink(reply: FastifyReply): StreamSink {
       if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
       if (payload.attachments) send({ ...base, choices: [], attachments: payload.attachments })
       if (payload.audio) send({ ...base, choices: [], audio: payload.audio })
+      if (payload.mnemosyne) send({ ...base, choices: [], mnemosyne: payload.mnemosyne })
       reply.raw.end('data: [DONE]\n\n')
     },
     fail(payload: Record<string, unknown>): void {
@@ -378,6 +379,7 @@ function renderStreamCompletion(reply: FastifyReply, payload: Record<string, unk
   if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
   if (payload.attachments) send({ ...base, choices: [], attachments: payload.attachments })
   if (payload.audio) send({ ...base, choices: [], audio: payload.audio })
+  if (payload.mnemosyne) send({ ...base, choices: [], mnemosyne: payload.mnemosyne })
   reply.raw.end('data: [DONE]\n\n')
 }
 

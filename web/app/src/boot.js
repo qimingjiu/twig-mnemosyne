@@ -8,6 +8,7 @@ const PAGE_MODULES = {
   index: () => import('./pages/index.js'),
   book: () => import('./pages/book.js'),
   explorer: () => import('./pages/explorer.js'),
+  console: () => import('./pages/console.js'),
   login: () => import('./pages/login.js'),
 }
 

@@ -59,7 +59,7 @@ LiteLLM 层明确不配 response cache（litellm.yaml 头注）；厂商侧命�
 | 语义缓存 | cache/ | 需 embedding 模型 + RedisVL；**前置条件：narrativeVersion 稳定化**——promptText 按 §18.1 含 recentStamps 等每轮漂移信号，nv=sha256(promptText) 逐轮变化，§7.3「nv 相等才命中」的语义缓存在此之前无生存空间（exact 键同源受累，R3 已修 temperature 收敛值问题） |
 | DNS rebinding 钉扎 | identity/webhookGuard | ✅ 已收口（2026-09-03）：pinnedLookup 把解析→校验→连接收敛进同一次 lookup，deliver.ts 经 undici Agent + undici fetch 连接已校验 IP，TOCTOU 窗口消除；T8.5 用例扩到钉扎层与 E2E 投递 |
 | 真流式（上游 token 级透传） | http/routes / chat/pipeline / gateways | ✅ 已收口（2026-09-03）：gateway.chatStream（SSE 解析 + tool_calls 片段合并 + stream_options 取 usage），管线 onDelta 透传，路由 sink 惰性开流（首帧前失败保持 JSON 状态码；已发帧禁链内 fallback 防重复文本）；缓存命中仍整段重放 |
-| 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer 已实时；写操作（contest/correct/relocate）与 console/forge/settings 数据接入待后续。注：「web 也是客户端」在 identity 层为真（client_type='web'，浏览器持自己的 client_key），但**对话面尚未接入**——BFF 无 /v1/web/chat 路由，console 页是静态稿；管线已支持真流式，接 chat 页时可直接复用 |
+| 爱琴海之夜 Dashboard 完整接入 | http/webRoutes | index/book/explorer/**console（对话面，2026-09-03 接入真流式 chat）**已实时；剩余写操作（contest/correct/relocate）与 observatory/forge/settings 待后续。「web 也是客户端」现已完整成立：identity 层 client_type='web' + 浏览器直连 /v1/chat/completions 真流式，共享同一 personal session 上下文 |
 | OTel → Collector | observability | prom-client 直采（务实 v0） |
 | Skill Forge（§22） | — | 依赖工具回路的 AgentTrace 积累（回路已上线，开始攒轨迹） |
 | vein-nudge 独立证据公式 | outreach/candidates | 上游 packet 无证据时间戳字段，以 7 天硬冷却 + evidenceLevel 降级近似（详见 docs/upstream.md） |
