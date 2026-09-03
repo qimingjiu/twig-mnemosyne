@@ -9,6 +9,13 @@ lanes:
   research: [time, web, research]
   tool:     [time, web, calendar, mail, music, research, registry]
 
+# §5.4（2026-09-03 债务 #13 收口）：动态注册工具（Smithery 等 capabilities 未显式声明的 gateway 工具）
+# 只进下列白名单泳道。mail/calendar 属 §4.7 contested 域，与 capability 声明的 mail/calendar 同收敛到
+# tool lane；chat 等其他泳道经 registry.invoke 逃生舱仍可达（每次调用带确认票）。缺省（删掉本段）= 全部泳道可见。
+dynamic_tools:
+  lanes: [tool]
+  confirmation_required: true
+
 # §5 Tool Resolver：capability provider → mcp-gateway 里的 server 名。
 # 内置 server（core/web/music/scholar）在网关源码里实现，容错性最高；remote 仅 OAuth 型（gmail/calendar）。
 mcp_servers:

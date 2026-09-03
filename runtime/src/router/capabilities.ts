@@ -32,6 +32,8 @@ interface CapFile {
   capabilities: Record<string, Omit<Capability, 'name'>>
   /** §5：capability provider → mcp-gateway server 名 */
   mcp_servers?: Record<string, string>
+  /** §5.4（2026-09-03 债务 #13 收口）：动态注册工具（capabilities 未显式声明）的泳道收敛。缺省=全部泳道可见（3d66d07 行为）。 */
+  dynamic_tools?: { lanes?: string[]; confirmation_required?: boolean }
 }
 
 let cache: CapFile | null = null
@@ -62,6 +64,22 @@ export function getForLane(lane: string, file: CapFile = loadCapabilities()): Ca
 /** §4.7 contested → capability 域映射（注册表配置）。 */
 export function contestedKeywordMap(file: CapFile = loadCapabilities()): Record<string, string[]> {
   return file.cap_domains?.contested_keywords ?? {}
+}
+
+export interface DynamicToolsPolicy {
+  /** 允许追加动态工具的泳道；'*' = 不收敛（历史行为，兼容未升级配置） */
+  lanes: string[] | '*'
+  confirmationRequired: boolean
+}
+
+/** 动态工具（capabilities 未显式声明、由 enrichSchemas 追加的 gateway 工具）的泳道白名单。 */
+export function dynamicToolsPolicy(file: CapFile = loadCapabilities()): DynamicToolsPolicy {
+  const dt = file.dynamic_tools
+  const lanes = dt?.lanes
+  return {
+    lanes: Array.isArray(lanes) && lanes.length > 0 ? lanes : '*',
+    confirmationRequired: dt?.confirmation_required ?? true,
+  }
 }
 
 /**

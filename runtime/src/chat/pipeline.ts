@@ -212,7 +212,8 @@ export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Pr
           narrativeUnavailable: false,
         }
         const exactKey = buildCacheKey('exact', req.user.eternal_id, narrativeVersion,
-          [...built.messages, { role: 'user', content: currentMessage }], chain[0] ?? '', { temperature })
+          [...built.messages, { role: 'user', content: currentMessage }], chain[0] ?? '',
+          { temperature: clampTemperature(temperature, chain[0] ?? '') })
         const exactHit = await exactGet(deps.redis, exactKey)
         if (exactHit) {
           cacheHitType = 'exact'
@@ -319,7 +320,7 @@ async function executeToolLoop(
   let laneTools = !spec || spec.lane === 'local' || st.privacyLane === 'local' ? [] : toolsForLane(st.lane)
   // §5.4：用网关真实 input_schema 喂模型；网关不可达时保留占位空 schema（调用端报 unknown-server，不静默）
   try {
-    laneTools = enrichSchemas(laneTools, await deps.mcp.listTools())
+    laneTools = enrichSchemas(laneTools, await deps.mcp.listTools(), st.lane)
   } catch (e) {
     console.error('[tools] mcp-gateway unreachable; schemas stay empty:', e instanceof Error ? e.message : e)
   }
@@ -430,7 +431,7 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
 
     const exactKey = buildCacheKey('exact', req.user.eternal_id, builtForModel.narrativeVersion,
       [...builtForModel.messages, { role: 'user', content: extractText(req.messages.at(-1)?.content) }],
-      model, { temperature: st.temperature })
+      model, { temperature: clampTemperature(st.temperature, model) })
 
     if (st.cacheHitType === 'miss' && !st.crisis && st.privacyLane === 'cloud') {
       const exactHit = await exactGet(deps.redis, exactKey)
@@ -547,7 +548,9 @@ async function finalize(
     const cacheable = decision.shouldCache && (st.toolMeta?.pending ?? 0) === 0
     if (cacheable && decision.ttl) {
       const exactKey = buildCacheKey('exact', req.user.eternal_id, st.built.narrativeVersion,
-        [...st.built.messages, { role: 'user', content: currentMessage }], st.usedModel, { temperature: st.temperature })
+        [...st.built.messages, { role: 'user', content: currentMessage }], st.usedModel,
+        // 键用收敛后的实际采样参数：写入键与读取键一致（RikkaHub 默认 2 与默认 0.7 的请求由此可互相命中）
+        { temperature: clampTemperature(st.temperature, st.usedModel) })
       await exactSet(deps.redis, exactKey, { response: st.content, model: st.usedModel, output_tokens: st.result?.completionTokens ?? 0 }, decision.ttl)
       if (st.narrativeVersion) {
         await contextSet(deps.redis,

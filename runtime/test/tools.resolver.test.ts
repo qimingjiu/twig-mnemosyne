@@ -64,6 +64,19 @@ describe('§5 Tool Resolver（capability → MCP tool）', () => {
     // invoke escape hatch 本身确认设为 false、但在下设立调用任意工具时，被服务治理那一层已做拦截的设计贯穿
   })
 
+  it('债务 #13 收口：动态工具只进 dynamic_tools.lanes 白名单泳道（config 现为 [tool]）', () => {
+    const smithery = { server: 'smithery_gmail', name: 'send_email', description: 'd', input_schema: { type: 'object', properties: {} } }
+    // chat 泳道不在白名单 → 不追加；能力不丢失，经 registry.invoke 逃生舱仍可达（确认票兜底）
+    const chat = enrichSchemas(toolsForLane('chat'), [smithery], 'chat')
+    expect(chat.find(t => t.fnName === 'smithery_gmail_send_email')).toBeUndefined()
+    // tool 泳道在白名单 → 追加且默认带确认
+    const tool = enrichSchemas(toolsForLane('tool'), [smithery], 'tool')
+    expect(tool.find(t => t.fnName === 'smithery_gmail_send_email')).toMatchObject({ confirmationRequired: true })
+    // lane 缺省 = 不收敛（兼容旧调用方与 3d66d07 行为）
+    const legacy = enrichSchemas(toolsForLane('chat'), [smithery])
+    expect(legacy.find(t => t.fnName === 'smithery_gmail_send_email')).toBeDefined()
+  })
+
   it('按 fnName 反查 + OpenAI schema 形状', () => {
     const tools = toolsForLane('chat')
     expect(resolveTool('time_get_current_time', tools)?.server).toBe('core')
