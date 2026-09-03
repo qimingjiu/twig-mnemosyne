@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { env } from '../config.js'
 import { IdentityError, AttemptLimiter, resolveSession, registerClient, rotateClientKey, authClient, getUserById, type ClientRow, type UserRow } from '../identity/service.js'
-import { handleChatCompletion, type ChatDeps } from '../chat/pipeline.js'
+import { handleChatCompletion, type ChatDeps, type ChatOutcome } from '../chat/pipeline.js'
 import { renderMetrics } from '../observability/metrics.js'
 import { registerBrokerRoute } from '../broker/tokenBroker.js'
 import { redactText } from '../observability/redact.js'
@@ -191,21 +191,38 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     const user = await deps.userOf(client.user_id)
     if (!user) return reply.code(401).send({ error: { message: 'invalid key', type: 'invalid_key' } })
 
-    const outcome = await handleChatCompletion(deps, {
-      client,
-      user,
-      messages: parsed.data.messages,
-      model: parsed.data.model,
-      temperature: parsed.data.temperature,
-      metadata: parsed.data.metadata,
-      eternalSessionId: (req.headers['x-eternal-session-id'] as string | undefined) || undefined,
-      sessionType: (req.headers['x-session-type'] as string | undefined) || undefined,
-    })
-    // 假流式（§14.2 现状：管线为同步补全）：200 结果按 OpenAI chunk 协议切片重放，
-    // 兼容默认 stream=true 的客户端（RikkaHub 等）；错误路径仍走 JSON 错误通道
-    if (parsed.data.stream) {
-      if (outcome.status !== 200) return reply.code(outcome.status).send(outcome.payload)
-      return renderStreamCompletion(reply, outcome.payload)
+    // 真流式（stream=true）：sink.push 作为 onDelta 透传上游 delta；非流式请求保持原 JSON 通道
+    const sink = parsed.data.stream ? createStreamSink(reply) : null
+    let outcome: ChatOutcome
+    try {
+      outcome = await handleChatCompletion(deps, {
+        client,
+        user,
+        messages: parsed.data.messages,
+        model: parsed.data.model,
+        temperature: parsed.data.temperature,
+        metadata: parsed.data.metadata,
+        eternalSessionId: (req.headers['x-eternal-session-id'] as string | undefined) || undefined,
+        sessionType: (req.headers['x-session-type'] as string | undefined) || undefined,
+      }, sink?.push)
+    } catch (e) {
+      // 首帧未发 → 保持 JSON 状态码语义（统一错误映射）；已发帧 → 错误只能走 SSE 通道
+      if (sink?.opened) {
+        sink.fail({ error: { message: e instanceof Error ? redactText(e.message) : 'internal error', type: 'gateway_error' } })
+        return
+      }
+      throw e
+    }
+    if (outcome.status !== 200) {
+      if (sink?.opened) {
+        sink.fail(outcome.payload)
+        return
+      }
+      return reply.code(outcome.status).send(outcome.payload)
+    }
+    if (sink) {
+      sink.finish(outcome.payload)
+      return
     }
     return reply.code(outcome.status).send(outcome.payload)
   })
@@ -283,13 +300,72 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   })
 }
 
+/**
+ * 真流式 sink（2026-09-03 债务 #5 收口，替代纯假流式重放）：
+ * - push 惰性开流——首帧之前管线失败仍可走 JSON 状态码（401/429/502 语义不变）；
+ *   开流后错误只能走 SSE（fail 帧 + [DONE]）；
+ * - finish：未开流 → 整段重放（缓存命中路径，原 renderStreamCompletion 行为）；
+ *   已开流 → finish 帧 + usage + 附件/audio（Mnemosyne 扩展帧，标准客户端忽略）；
+ * - x-accel-buffering：禁 Zeabur/nginx 边缘对 SSE 的响应缓冲。
+ */
+export interface StreamSink {
+  readonly opened: boolean
+  push(text: string, model: string): void
+  finish(payload: Record<string, unknown>): void
+  fail(payload: Record<string, unknown>): void
+}
+
+export function createStreamSink(reply: FastifyReply): StreamSink {
+  let opened = false
+  let model = ''
+  const id = `chatcmpl-stream-${Date.now()}`
+  const created = Math.floor(Date.now() / 1000)
+  const base = { id, object: 'chat.completion.chunk', created, get model(): string { return model } }
+  const send = (chunk: Record<string, unknown>): void => {
+    reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
+  }
+  const open = (): void => {
+    opened = true
+    reply.hijack()
+    reply.raw.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' })
+    send({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })
+  }
+  return {
+    get opened(): boolean {
+      return opened
+    },
+    push(text: string, m: string): void {
+      if (!opened) {
+        model = m || model
+        open()
+      }
+      send({ ...base, choices: [{ index: 0, delta: { content: text }, finish_reason: null }] })
+    },
+    finish(payload: Record<string, unknown>): void {
+      if (!opened) {
+        renderStreamCompletion(reply, payload) // 缓存命中 / 非流式上游：整段重放
+        return
+      }
+      send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
+      if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
+      if (payload.attachments) send({ ...base, choices: [], attachments: payload.attachments })
+      if (payload.audio) send({ ...base, choices: [], audio: payload.audio })
+      reply.raw.end('data: [DONE]\n\n')
+    },
+    fail(payload: Record<string, unknown>): void {
+      if (!opened) return // 调用方走 JSON 错误通道
+      send({ ...base, choices: [], ...(payload.error ? { error: payload.error } : {}) })
+      reply.raw.end('data: [DONE]\n\n')
+    },
+  }
+}
+
 /** 200 补全按 OpenAI chunk 协议重放（payload 由 pipeline 保证为 chat.completion 形状）。 */
 function renderStreamCompletion(reply: FastifyReply, payload: Record<string, unknown>): void {
   const choices = payload.choices as Array<{ message: { content: unknown } }> | undefined
   const content = typeof choices?.[0]?.message?.content === 'string' ? choices[0].message.content : ''
   const base = { id: payload.id, object: 'chat.completion.chunk', created: payload.created, model: payload.model }
   reply.hijack()
-  // x-accel-buffering：禁 Zeabur/nginx 边缘对 SSE 的响应缓冲
   reply.raw.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' })
   const send = (chunk: Record<string, unknown>): void => {
     reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
@@ -300,6 +376,8 @@ function renderStreamCompletion(reply: FastifyReply, payload: Record<string, unk
   }
   send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
   if (payload.usage) send({ ...base, choices: [], usage: payload.usage })
+  if (payload.attachments) send({ ...base, choices: [], attachments: payload.attachments })
+  if (payload.audio) send({ ...base, choices: [], audio: payload.audio })
   reply.raw.end('data: [DONE]\n\n')
 }
 

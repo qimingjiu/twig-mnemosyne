@@ -5,7 +5,8 @@
  *   Identity（§2）→ 危机预扫（§3.9，先于一切缓存与模型调用）→ Session 解析
  *   → 泳道分类（§10.2）→ 隐私评分（§20.2）→ 目标链选定
  *   → Context Cache（§7.5）→ Exact Cache（§7.1/§7.2）→ 装配与 fallback 重装配（§3.8）
- *   → 模型调用 → 持久化/缓存写/用量/摄入（异步）/危机审计（§18.2）/TTS（§21）
+ *   → 模型调用（stream 客户端经 onDelta 真·token 级透传，债务 #5；已发帧后禁链内 fallback）
+ *   → 持久化/缓存写/用量/摄入（异步）/危机审计（§18.2）/TTS（§21）
  */
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
@@ -62,6 +63,9 @@ export interface ChatOutcome {
   payload: Record<string, unknown>
 }
 
+/** 真流式（债务 #5）：内容 delta 外发口（text, upstreamModel）。由路由层 sink 实现；缺省=同步补全。 */
+export type DeltaSink = (text: string, model: string) => void
+
 /** 媒体附件（当前仅音乐）：TG/web 客户端拿它发 sendAudio 或带链接预览的卡片（§5.5）。 */
 export interface Attachment {
   kind: 'music'
@@ -106,7 +110,7 @@ async function recentTtsCount(db: Pool, sessionId: string): Promise<number> {
   return Number(rows[0]?.n ?? 0)
 }
 
-export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Promise<ChatOutcome> {
+export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest, onDelta?: DeltaSink): Promise<ChatOutcome> {
   const started = Date.now()
   const requestId = randomUUID()
   const clientType = req.client.client_type
@@ -225,7 +229,7 @@ export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Pr
         }
         return await runModelLoop(deps, req, { started, requestId, clientType, session, crisis, ctxBase, built,
           chain, fallbackCount: 0, cacheHitType, routeReason, temperature, lane, narrativeVersion,
-          privacyLane: 'cloud' })
+          privacyLane: 'cloud' }, onDelta)
       }
     } catch {
       narrativeVersion = null // twig/redis 异常 → 走完整装配路径
@@ -236,7 +240,7 @@ export async function handleChatCompletion(deps: ChatDeps, req: ChatRequest): Pr
     started, requestId, clientType, session, crisis, ctxBase, built: null,
     chain, fallbackCount: 0, cacheHitType: 'miss', routeReason, temperature, lane,
     narrativeVersion, privacyLane: privacy.lane,
-  })
+  }, onDelta)
 }
 
 interface LoopState {
@@ -314,6 +318,7 @@ async function executeToolLoop(
   st: LoopState,
   model: string,
   built: BuiltContext,
+  onDelta?: DeltaSink,
 ): Promise<ToolLoopOutcome> {
   const spec = lookupModel(model)
   // §20：local lane 降级纯对话，不暴露工具 schema
@@ -334,7 +339,11 @@ async function executeToolLoop(
 
   for (;;) {
     // 温度按模型上限收敛：推理型模型 temperature>1 会被上游拒（UnsupportedParamsError，RikkaHub 默认 2 会踩）
-    const result = await deps.gateway.chat(model, convo, { temperature: clampTemperature(st.temperature, model), tools: openAiTools })
+    const callOpts = { temperature: clampTemperature(st.temperature, model), tools: openAiTools }
+    // 真流式：有 sink 走 token 级透传（工具轮的中间文本同样外发，语义与客户端累计的 assistant 消息一致）
+    const result = onDelta
+      ? await deps.gateway.chatStream(model, convo, callOpts, t => onDelta(t, model))
+      : await deps.gateway.chat(model, convo, callOpts)
     const calls = result.toolCalls ?? []
     if (calls.length === 0 || meta.rounds >= MAX_TOOL_ROUNDS || Date.now() > deadline) {
       if (calls.length > 0 && result.content === '') {
@@ -416,11 +425,16 @@ function isProviderMisconfig(e: unknown): boolean {
 }
 
 /** §3.8 每个候选独立装配（重装配），retryable/凭证缺失错误沿链降级；其余非 retryable 直接映射。 */
-async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Promise<ChatOutcome> {
+async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState, onDelta?: DeltaSink): Promise<ChatOutcome> {
   let result: ChatResult | null = null
   let usedModel = ''
   let built = st.built
   let lastError: unknown = null
+  // 真流式：一旦有 delta 外发即「已提交」——上游失败不允许换模型重试（客户端已收到部分文本，重试会重复）
+  let streamedAny = false
+  const sink: DeltaSink | undefined = onDelta
+    ? (text, model) => { streamedAny = true; onDelta(text, model) }
+    : undefined
 
   for (const model of st.chain) {
     const spec = lookupModel(model)
@@ -445,7 +459,7 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
 
     const t0 = Date.now()
     try {
-      const outcome = await executeToolLoop(deps, req, st, model, builtForModel)
+      const outcome = await executeToolLoop(deps, req, st, model, builtForModel, sink)
       latencySeconds.observe({ stage: 'model.call', provider: spec.provider }, (Date.now() - t0) / 1000)
       result = outcome.result
       st.toolMeta = outcome.meta
@@ -453,6 +467,7 @@ async function runModelLoop(deps: ChatDeps, req: ChatRequest, st: LoopState): Pr
       break
     } catch (e) {
       lastError = e
+      if (streamedAny) throw mapGatewayError(e) // 已向客户端发帧：换模型重试会重复文本
       if (!isRetryableError(e) && !isProviderMisconfig(e)) throw mapGatewayError(e)
       st.fallbackCount++
     }

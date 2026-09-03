@@ -2304,6 +2304,18 @@ X-Session-Type: personal  // optional
 }
 ```
 
+**Streaming**（2026-09-03 债务 #5 收口：真流式）：
+
+`stream: true` 时上游 token 级透传——管线以 LiteLLM SSE 流式调用（`stream_options.include_usage` 取用量），
+内容 delta 即时转发为标准 `chat.completion.chunk` 帧，收尾 `finish_reason: stop` 帧 + usage 帧 +
+Mnemosyne 扩展帧（`attachments`/`audio`，标准客户端忽略）+ `[DONE]`。两条语义边界：
+
+- **惰性开流**：首帧之前管线失败仍返回 JSON 状态码（401/429/502 语义不变）；首帧之后失败只能走
+  SSE（error 帧 + `[DONE]`），不再有状态码通道。
+- **已提交不可重试**：一旦有 delta 外发，模型链 fallback 停用——换模型重试会向客户端重复文本。
+  工具轮的中间文本同样外发（与客户端累计的 assistant 消息一致）；缓存命中（无 delta）整段重放，
+  行为与假流式一致。
+
 #### POST /v1/admin/capabilities
 
 **Admin only.** Register a new capability.

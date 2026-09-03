@@ -1,9 +1,9 @@
 /**
- * HTTP 装配层单测：/v1/models（OpenAI 兼容模型列表）与 chat 假流式（chunk 重放）。
- * chat 管线 mock 掉，只测路由语义与 SSE 形状；依赖全用假件（不连 Postgres/Redis）。
+ * HTTP 装配层单测：/v1/models（OpenAI 兼容模型列表）、chat 假流式重放（缓存命中路径）与
+ * 真流式接线（live delta、错误双通道）。chat 管线 mock 掉，只测路由语义与 SSE 形状；依赖全用假件。
  */
 import { describe, it, expect, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyReply } from 'fastify'
 
 vi.mock('../src/chat/pipeline.js', () => ({
   handleChatCompletion: vi.fn(async () => ({
@@ -19,7 +19,8 @@ vi.mock('../src/chat/pipeline.js', () => ({
   })),
 }))
 
-import { registerRoutes, type RouteDeps } from '../src/http/routes.js'
+import { registerRoutes, createStreamSink, type RouteDeps } from '../src/http/routes.js'
+import { handleChatCompletion } from '../src/chat/pipeline.js'
 import { AttemptLimiter } from '../src/identity/service.js'
 
 const CLIENT = { id: 'c-1', user_id: 'u-1', client_type: 'rikkahub' }
@@ -179,6 +180,139 @@ describe('POST /v1/chat/completions 流式', () => {
       payload,
     })
     expect(res.statusCode).toBe(401)
+    await app.close()
+  })
+})
+
+describe('createStreamSink（真流式 sink，债务 #5）', () => {
+  const fakeReply = () => {
+    const written: string[] = []
+    const state = { hijacked: false, ended: false }
+    const reply = {
+      hijack: () => { state.hijacked = true },
+      raw: {
+        writeHead: () => undefined,
+        write: (c: string) => { written.push(c) },
+        end: (c?: string) => { if (c) written.push(c); state.ended = true },
+      },
+    }
+    return { reply: reply as unknown as FastifyReply, written, state }
+  }
+
+  it('push 惰性开流：首帧前 opened=false；开流发 role 帧再 delta 帧', () => {
+    const { reply, written, state } = fakeReply()
+    const sink = createStreamSink(reply)
+    expect(sink.opened).toBe(false)
+    sink.push('你', 'kimi-k3')
+    expect(sink.opened).toBe(true)
+    sink.push('好', 'kimi-k3')
+    expect(written[0]).toContain('"delta":{"role":"assistant"')
+    expect(written[1]).toContain('"content":"你"')
+    expect(written[2]).toContain('"content":"好"')
+    expect(state.hijacked).toBe(true)
+  })
+
+  it('finish 已开流 → stop 帧 + usage/attachments/audio 扩展帧 + [DONE]，不整段重放', () => {
+    const { reply, written, state } = fakeReply()
+    const sink = createStreamSink(reply)
+    sink.push('你好', 'kimi-k3')
+    sink.finish({
+      id: 'chatcmpl-x', model: 'kimi-k3', usage: { prompt_tokens: 3 },
+      attachments: [{ kind: 'music', title: 't', artist: 'a', page_url: 'p', play_url: 'q' }],
+      audio: { data: 'k', mime: 'audio/mpeg', expires_in: 60 },
+    })
+    const body = written.join('')
+    expect(body).toContain('"finish_reason":"stop"')
+    expect(body).toContain('"usage":{"prompt_tokens":3}')
+    expect(body).toContain('"attachments"')
+    expect(body).toContain('"audio"')
+    expect(body.trimEnd().endsWith('data: [DONE]')).toBe(true)
+    expect(state.ended).toBe(true)
+  })
+
+  it('fail 已开流 → error 帧 + [DONE]；未开流 no-op（调用方走 JSON）', () => {
+    const opened = fakeReply()
+    const sink1 = createStreamSink(opened.reply)
+    sink1.push('x', 'm')
+    sink1.fail({ error: { message: 'upstream', type: 'gateway_error' } })
+    const body = opened.written.join('')
+    expect(body).toContain('"error"')
+    expect(body.trimEnd().endsWith('data: [DONE]')).toBe(true)
+    expect(opened.state.ended).toBe(true)
+
+    const closed = fakeReply()
+    const sink2 = createStreamSink(closed.reply)
+    sink2.fail({ error: { message: 'upstream', type: 'gateway_error' } })
+    expect(sink2.opened).toBe(false)
+    expect(closed.state.ended).toBe(false)
+  })
+})
+
+describe('POST /v1/chat/completions 真流式接线（债务 #5）', () => {
+  it('管线 onDelta 帧 live 透传；payload 不再整段重放', async () => {
+    vi.mocked(handleChatCompletion).mockImplementationOnce(async (_deps, _req, onDelta) => {
+      onDelta?.('早', 'kimi-k3')
+      onDelta?.('安', 'kimi-k3')
+      return {
+        status: 200,
+        payload: {
+          id: 'chatcmpl-live', object: 'chat.completion', created: 1788000000, model: 'kimi-k3',
+          choices: [{ index: 0, message: { role: 'assistant', content: '早安' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
+        },
+      }
+    })
+    const app = buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: 'Bearer mn_ok', 'content-type': 'application/json' },
+      payload: { messages: [{ role: 'user', content: '在吗' }], stream: true },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(String(res.headers['content-type'])).toContain('text/event-stream')
+    expect(res.body).toContain('"content":"早"')
+    expect(res.body).toContain('"content":"安"')
+    // 不重放：payload.choices 的完整文本不应以切片帧出现
+    expect(res.body).not.toContain('"content":"早安"')
+    expect(res.body).toContain('"finish_reason":"stop"')
+    expect(res.body).toContain('"usage":{"prompt_tokens":3')
+    expect(res.body.trimEnd().endsWith('data: [DONE]')).toBe(true)
+    await app.close()
+  })
+
+  it('首帧后管线抛错 → SSE error 帧 + [DONE]（不再走 JSON 状态码）', async () => {
+    vi.mocked(handleChatCompletion).mockImplementationOnce(async (_deps, _req, onDelta) => {
+      onDelta?.('部分', 'm')
+      throw new Error('upstream exploded')
+    })
+    const app = buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: 'Bearer mn_ok', 'content-type': 'application/json' },
+      payload: { messages: [{ role: 'user', content: '在吗' }], stream: true },
+    })
+    expect(res.statusCode).toBe(200) // 已 hijack，只能 SSE
+    expect(res.body).toContain('"content":"部分"')
+    expect(res.body).toContain('"error"')
+    expect(res.body.trimEnd().endsWith('data: [DONE]')).toBe(true)
+    await app.close()
+  })
+
+  it('首帧前管线抛错 → 保持 JSON 状态码（sink 未开流）', async () => {
+    vi.mocked(handleChatCompletion).mockImplementationOnce(async () => {
+      throw new Error('pre-flight failure')
+    })
+    const app = buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: 'Bearer mn_ok', 'content-type': 'application/json' },
+      payload: { messages: [{ role: 'user', content: '在吗' }], stream: true },
+    })
+    expect(res.statusCode).toBe(500)
+    expect(res.json()).toMatchObject({ error: { type: 'internal_error' } })
     await app.close()
   })
 })
