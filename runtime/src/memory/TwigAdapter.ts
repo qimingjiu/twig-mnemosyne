@@ -23,7 +23,7 @@ export class TwigAdapter {
     private readonly token: string,
   ) {}
 
-  private async call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async call<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = 10_000): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: {
@@ -31,7 +31,7 @@ export class TwigAdapter {
         Authorization: `Bearer ${this.token}`,
       },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     if (!res.ok) throw new TwigError(method, path, res.status, await res.text())
     return (await res.json()) as T
@@ -90,8 +90,10 @@ export class TwigAdapter {
     return this.call('GET', `/v1/calendar?${q}`)
   }
 
-  reflect(userId: string): Promise<unknown> {
-    return this.call('POST', '/v1/reflect', { userId })
+  /** 反刍：认识层抽取/反证/重生成是分钟级 LLM 联合推理——单独放宽超时（默认 240s）。
+   *  超时中断时 twig 侧仍在跑（per-user 锁未释放），重试会排队等它完成，不会并发反刍。 */
+  reflect(userId: string, timeoutMs = 240_000): Promise<unknown> {
+    return this.call('POST', '/v1/reflect', { userId }, timeoutMs)
   }
 
   contest(userId: string, claimId: string, note: string): Promise<unknown> {

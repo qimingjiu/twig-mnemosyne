@@ -58,6 +58,17 @@ const EnvSchema = z.object({
 
   // Moonshot 官方 API 密钥
   MOONSHOT_API_KEY: z.string().default(''),
+
+  // 反刍排程（技术文档「每日：cron 对每个近 24h 活跃用户调 reflect」）。
+  // MUNINN_AUTO_REFLECT 保持关闭——排程单一事实源在 Runtime 侧（§4.4）
+  REFLECT_ENABLED: z.string().optional().transform(v => v !== '0' && v !== 'false'),
+  // 服务器时区（容器为 UTC）：30 18 * * * ≈ 北京时间 02:30，全天对话沉淀后的低谷
+  REFLECT_CRON: z.string().default('30 18 * * *'),
+  // 「活跃」窗口：近 N 小时有过用户消息才参与反刍
+  REFLECT_ACTIVE_HOURS: z.coerce.number().int().min(1).default(24),
+  // 单用户 reflect 超时：认识层抽取/反证搜索是分钟级 LLM 联合推理，通用 10s 不够。
+  // 上限受 twig 侧 Node 默认 requestTimeout(300s) 约束
+  REFLECT_TIMEOUT_MS: z.coerce.number().int().min(10_000).default(240_000),
 })
 
 export type Env = z.infer<typeof EnvSchema>

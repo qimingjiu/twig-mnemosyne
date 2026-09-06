@@ -18,6 +18,7 @@ import { startTelegramPolling } from './telegram/adapter.js'
 import { loadHuginnConfig } from './outreach/policy.js'
 import { runScan, defaultGuard } from './outreach/pipeline.js'
 import { runOutboxWorker } from './outreach/outboxWorker.js'
+import { runReflectScan } from './memory/reflectScan.js'
 
 /** cron 表达式调度：每 30s 检查一次，按分钟去重（调度器重复触发由 outbox/幂等键兜底，T9.12）。 */
 function scheduleCron(expr: string, fn: () => Promise<void>, log: (m: string) => void): ReturnType<typeof setInterval> {
@@ -140,6 +141,30 @@ async function main(): Promise<void> {
       }, huginn.outbox_worker_interval * 1000),
     )
     app.log.info(`[huginn] enabled: scan="${huginn.scan_interval}" cap=${huginn.daily_cap}`)
+  }
+
+  // 反刍排程（技术文档「每日 cron」承诺的落地）：近 24h 活跃用户逐个 reflect。
+  // 认识层（论断/当前理解）的唯一写入者是 reflect——此前排程缺失导致认识层从未产出过内容。
+  if (env.REFLECT_ENABLED) {
+    timers.push(
+      scheduleCron(
+        env.REFLECT_CRON,
+        async () => {
+          await runReflectScan({
+            db: pool,
+            twig,
+            activeHours: env.REFLECT_ACTIVE_HOURS,
+            timeoutMs: env.REFLECT_TIMEOUT_MS,
+            log: m => app.log.info(m),
+            warn: m => app.log.error(m),
+          })
+        },
+        m => app.log.error(m),
+      ),
+    )
+    app.log.info(
+      `[reflect] scheduled: cron="${env.REFLECT_CRON}" (server tz), activeHours=${env.REFLECT_ACTIVE_HOURS}h, timeout=${env.REFLECT_TIMEOUT_MS}ms`,
+    )
   }
 
   await app.listen({ port: env.PORT, host: '0.0.0.0' })

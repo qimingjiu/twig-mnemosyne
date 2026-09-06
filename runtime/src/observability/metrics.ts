@@ -51,6 +51,13 @@ export const costUsd = new client.Counter({
   registers: [registry],
 })
 
+export const reflectTotal = new client.Counter({
+  name: 'mnemosyne_reflect_total',
+  help: 'Rumination outcomes from the daily reflect scan',
+  labelNames: ['outcome'] as const,
+  registers: [registry],
+})
+
 export async function renderMetrics(): Promise<string> {
   return registry.metrics()
 }
