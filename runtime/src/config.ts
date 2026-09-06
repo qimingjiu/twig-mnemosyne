@@ -66,9 +66,9 @@ const EnvSchema = z.object({
   REFLECT_CRON: z.string().default('30 18 * * *'),
   // 「活跃」窗口：近 N 小时有过用户消息才参与反刍
   REFLECT_ACTIVE_HOURS: z.coerce.number().int().min(1).default(24),
-  // 单用户 reflect 超时：认识层抽取/反证搜索是分钟级 LLM 联合推理，通用 10s 不够。
-  // 上限受 twig 侧 Node 默认 requestTimeout(300s) 约束
-  REFLECT_TIMEOUT_MS: z.coerce.number().int().min(10_000).default(240_000),
+  // 单用户 reflect 超时：认识层抽取/反证/合成句/日记/自语是多段 LLM 串行调用，
+  // 实测积压首轮 >4 分钟；上限受 twig 侧 socket 无超时约束，给足 15 分钟
+  REFLECT_TIMEOUT_MS: z.coerce.number().int().min(10_000).default(900_000),
 })
 
 export type Env = z.infer<typeof EnvSchema>

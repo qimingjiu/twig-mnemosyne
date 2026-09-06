@@ -21,7 +21,7 @@ function harness(rows: { eternal_id: string }[], reflectImpl: (userId: string) =
       db: { query } as unknown as Pool,
       twig: { reflect } as unknown as TwigAdapter,
       activeHours: 24,
-      timeoutMs: 240_000,
+      timeoutMs: 900_000,
       log: (m: string) => logs.push(m),
       warn: (m: string) => warns.push(m),
     },
@@ -40,7 +40,7 @@ describe('反刍排程扫描（每日 cron 的执行体）', () => {
 
     expect(r).toMatchObject({ scanned: 2, ok: 2, failed: 0, failures: [] })
     expect(h.reflect).toHaveBeenCalledTimes(2)
-    expect(h.reflect).toHaveBeenCalledWith('a'.repeat(64), 240_000)
+    expect(h.reflect).toHaveBeenCalledWith('a'.repeat(64), 900_000)
     expect(h.logs.some(m => m.includes('claims+2'))).toBe(true)
     expect(h.warns).toHaveLength(0)
   })

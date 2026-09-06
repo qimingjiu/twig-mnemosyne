@@ -90,9 +90,9 @@ export class TwigAdapter {
     return this.call('GET', `/v1/calendar?${q}`)
   }
 
-  /** 反刍：认识层抽取/反证/重生成是分钟级 LLM 联合推理——单独放宽超时（默认 240s）。
+  /** 反刍：认识层抽取/反证/重生成是多段 LLM 串行调用，实测 >4 分钟——单独放宽超时（默认 15 分钟）。
    *  超时中断时 twig 侧仍在跑（per-user 锁未释放），重试会排队等它完成，不会并发反刍。 */
-  reflect(userId: string, timeoutMs = 240_000): Promise<unknown> {
+  reflect(userId: string, timeoutMs = 900_000): Promise<unknown> {
     return this.call('POST', '/v1/reflect', { userId }, timeoutMs)
   }
 
