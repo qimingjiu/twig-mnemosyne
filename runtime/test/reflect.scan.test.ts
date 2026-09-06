@@ -33,15 +33,15 @@ function harness(rows: { eternal_id: string }[], reflectImpl: (userId: string) =
 }
 
 describe('反刍排程扫描（每日 cron 的执行体）', () => {
-  it('全部成功：逐用户调用 reflect 并透传超时', async () => {
+  it('全部成功：逐用户异步点火 reflect 并透传超时', async () => {
     const h = harness([{ eternal_id: 'a'.repeat(64) }, { eternal_id: 'b'.repeat(64) }],
-      async () => ({ claimsCreated: 2, claimsRewritten: 1 }))
+      async () => ({ queued: true }))
     const r = await runReflectScan(h.deps)
 
     expect(r).toMatchObject({ scanned: 2, ok: 2, failed: 0, failures: [] })
     expect(h.reflect).toHaveBeenCalledTimes(2)
-    expect(h.reflect).toHaveBeenCalledWith('a'.repeat(64), 900_000)
-    expect(h.logs.some(m => m.includes('claims+2'))).toBe(true)
+    expect(h.reflect).toHaveBeenCalledWith('a'.repeat(64), 900_000, { async: true })
+    expect(h.logs.some(m => m.includes('queued'))).toBe(true)
     expect(h.warns).toHaveLength(0)
   })
 
@@ -50,7 +50,7 @@ describe('反刍排程扫描（每日 cron 的执行体）', () => {
       throw new Error('boom')
     })
     h.reflect.mockRejectedValueOnce(new Error('timeout'))
-    h.reflect.mockResolvedValueOnce({ claimsCreated: 1 })
+    h.reflect.mockResolvedValueOnce({ queued: true })
     const r = await runReflectScan(h.deps)
 
     expect(r).toMatchObject({ scanned: 1, ok: 1, failed: 0 })

@@ -28,6 +28,7 @@ export interface ReflectScanResult {
 }
 
 interface ReflectSummary {
+  queued?: boolean
   claimsCreated?: number
   claimsRewritten?: number
   skipped?: string[]
@@ -35,6 +36,8 @@ interface ReflectSummary {
 
 function summarize(r: unknown): string {
   const s = (r ?? {}) as ReflectSummary
+  // async 点火返回 202 {queued:true}——结果在 twig 日志（[reflect async] done/failed）
+  if (s.queued) return 'queued'
   const parts = [`claims+${s.claimsCreated ?? 0}`, `rewrite+${s.claimsRewritten ?? 0}`]
   if (s.skipped?.length) parts.push(`skipped[${s.skipped.join(',')}]`)
   return parts.join(' ')
@@ -60,14 +63,15 @@ export async function runReflectScan(deps: ReflectScanDeps): Promise<ReflectScan
   const result: ReflectScanResult = { scanned: rows.length, ok: 0, failed: 0, failures: [] }
   for (const { eternal_id } of rows) {
     try {
-      const r = await deps.twig.reflect(eternal_id, deps.timeoutMs)
+      // async 点火：202 立即返回，反刍在 twig 后台执行——不用长响应等它，也不再重试空排队
+      const r = await deps.twig.reflect(eternal_id, deps.timeoutMs, { async: true })
       result.ok++
       reflectTotal.inc({ outcome: 'ok' })
       log(`[reflect] ok user ${eternal_id.slice(0, 8)}…: ${summarize(r)}`)
     } catch (first) {
       // 技术文档口径：失败重试 1 次
       try {
-        const r = await deps.twig.reflect(eternal_id, deps.timeoutMs)
+        const r = await deps.twig.reflect(eternal_id, deps.timeoutMs, { async: true })
         result.ok++
         reflectTotal.inc({ outcome: 'ok' })
         log(`[reflect] ok after retry user ${eternal_id.slice(0, 8)}…: ${summarize(r)}`)

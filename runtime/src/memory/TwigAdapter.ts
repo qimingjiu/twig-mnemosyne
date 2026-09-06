@@ -90,10 +90,11 @@ export class TwigAdapter {
     return this.call('GET', `/v1/calendar?${q}`)
   }
 
-  /** 反刍：认识层抽取/反证/重生成是多段 LLM 串行调用，实测 >4 分钟——单独放宽超时（默认 15 分钟）。
-   *  超时中断时 twig 侧仍在跑（per-user 锁未释放），重试会排队等它完成，不会并发反刍。 */
-  reflect(userId: string, timeoutMs = 900_000): Promise<unknown> {
-    return this.call('POST', '/v1/reflect', { userId }, timeoutMs)
+  /** 反刍：多段 LLM 串行调用，实测 >5 分钟——超过 Zeabur 内网代理的长响应上限，
+   *  同步调用会被掐断连接（fetch failed/timeout，但 twig 侧仍会跑完）。
+   *  排程走 async:true（202 立即返回，后台执行，结果看 twig 日志）；缺省保持同步语义。 */
+  reflect(userId: string, timeoutMs = 900_000, opts?: { async?: boolean }): Promise<unknown> {
+    return this.call('POST', '/v1/reflect', { userId, ...(opts?.async ? { async: true } : {}) }, timeoutMs)
   }
 
   contest(userId: string, claimId: string, note: string): Promise<unknown> {
